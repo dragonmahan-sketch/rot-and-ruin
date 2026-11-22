@@ -26,6 +26,9 @@
   .room{display:inline-block;margin:0 0 24px;padding:10px 18px;border:1px solid #2c3a28;
     background:rgba(143,212,106,.05);letter-spacing:.3em;font-size:13px;color:#9fb396}
   .room b{color:#f0d78a;letter-spacing:.3em}
+  .room button{background:none;border:0;color:#6f8a63;font:inherit;font-size:11px;
+    letter-spacing:.12em;text-decoration:underline;padding:6px 4px;cursor:pointer}
+  .room button:hover{color:#cfe3c6}
   a.play{display:block;text-decoration:none;border:1px solid #4c7a3d;
     background:linear-gradient(180deg,#3d5f31,#2a4222);color:#eaf5e2;font-size:15px;
     letter-spacing:.22em;padding:16px 20px;text-transform:uppercase;min-height:56px;line-height:1.4}
@@ -86,7 +89,7 @@
       Server <code id="savedHost"></code>
       <button id="change" type="button">change</button>
     </div>
-    <div class="room">ROOM <b>RUIN</b></div>
+    <div class="room">ROOM <b id="roomCode"></b> <button id="newRoom" type="button">new code</button></div>
     <div><a class="play" id="play" href="#">Enter the room</a></div>
     <button class="share" id="share">Copy a link for a friend</button>
     <div class="linkRow" id="linkRow" hidden>
@@ -104,8 +107,28 @@
 (function () {
   'use strict';
   var DEFAULT_HOST = '';
-  var ROOM = 'RUIN';
   var KEY = 'rotruin.coop.host';
+  var CODE_KEY = 'rotruin.coop.room';
+  /* One room code per pair. It is picked on the screen that shares the link and
+     travels in that link, so two pairs never land in each other's game. No I,
+     O, 0 or 1, because those get misread when someone says a code out loud. */
+  var ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+  function randomCode() {
+    var out = '', i, buf;
+    if (window.crypto && window.crypto.getRandomValues) {
+      buf = new Uint8Array(4);
+      window.crypto.getRandomValues(buf);
+      for (i = 0; i < 4; i++) out += ALPHABET.charAt(buf[i] % ALPHABET.length);
+    } else {
+      for (i = 0; i < 4; i++) out += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
+    }
+    return out;
+  }
+
+  function tidyCode(v) {
+    return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  }
   /* the address this page used to ship with, before it was known to be dead */
   var DEAD = 'rot-and-ruin-coop.onrender.com';
 
@@ -117,6 +140,14 @@
   }
 
   var q = new URLSearchParams(location.search);
+
+  /* the link carries the pair's own code; with no link, this device keeps the
+     code it made, so reopening the icon rejoins the same game instead of
+     starting a fresh room every time */
+  var storedRoom = '';
+  try { storedRoom = localStorage.getItem(CODE_KEY) || ''; } catch (e) {}
+  var ROOM = tidyCode(q.get('room')) || tidyCode(storedRoom) || randomCode();
+
   var stored = '';
   try { stored = localStorage.getItem(KEY) || ''; } catch (e) {}
   /* a phone that saved the old address before it was known to be dead gets
@@ -134,6 +165,7 @@
   var linkRow = document.getElementById('linkRow');
   var linkBox = document.getElementById('linkBox');
   var hint = document.getElementById('hint');
+  var roomEl = document.getElementById('roomCode');
 
   function bare(h) { var i = h.indexOf('://'); return i > -1 ? h.slice(i + 3) : h; }
 
@@ -167,6 +199,27 @@
   }
   apply(host);
   showState();
+  roomEl.textContent = ROOM;
+  try { localStorage.setItem(CODE_KEY, ROOM); } catch (e) {}
+
+  document.getElementById('newRoom').addEventListener('click', function () {
+    setRoom('');
+    flash('New room ' + ROOM);
+  });
+
+  /* switching code keeps the address: only the room changes */
+  function setRoom(code) {
+    ROOM = tidyCode(code) || randomCode();
+    try { localStorage.setItem(CODE_KEY, ROOM); } catch (e) {}
+    roomEl.textContent = ROOM;
+    linkRow.hidden = true;
+    /* keep the address in step, so a reload here rejoins the new room rather
+       than the one the old link pointed at */
+    var u = new URL(location.href);
+    u.searchParams.set('room', ROOM);
+    history.replaceState(null, '', u);
+    if (host) apply(host);
+  }
 
   /* a link made by "Copy a link for a friend" carries go=1: the friend lands
      in the room itself, with nothing to type and nothing to tap */

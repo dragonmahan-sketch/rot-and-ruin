@@ -61,8 +61,8 @@ The co-op app needs the room server; it does not work offline.
  5. Tap "Install" to confirm.
  6. The icon appears, named R&R co-op. It may land on a later home screen or in
     the app drawer; long-press and drag it where you want it.
- 7. Open it. It fills the screen with no address bar: your server line, ROOM
-    RUIN, and ENTER THE ROOM.
+     7. Open it. It fills the screen with no address bar: your server line, your
+    room code, and ENTER THE ROOM.
  8. Tap ENTER THE ROOM.
 
 If Chrome does not offer "Install app" the first time, reload the page once and
@@ -93,10 +93,16 @@ type the new address and save again.
 
 SENDING A FRIEND LINK SO NOBODY PASTES ANYTHING
 ------------------------------------------------
+Every pair gets its own room code - four characters, picked on the page and
+drawn fresh when there is no link to follow. The code travels inside the friend
+link, so two pairs playing at the same time never meet. Yours stays on your
+phone, so reopening the icon rejoins the same game; tap "new code" beside the
+room code to start a different room and send a fresh link.
+
 Tap SEND A LINK TO A FRIEND. The phone's share sheet opens with the link already
-filled in; pick an app and send it. Your friend taps the link and lands in room
-RUIN, next to you. No address, no field, nothing to type. The link carries the
-server address and a "go" flag that skips the page entirely.
+filled in; pick an app and send it. Your friend taps the link and lands in your
+room, next to you. No address, no code to type, no field. The link carries the
+server address, the room code, and a "go" flag that skips the page entirely.
 
 If you back out of the share sheet, the same button copies the link instead, so
 you can paste it wherever you like. If a link ever stops working it is because

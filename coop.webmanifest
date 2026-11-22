@@ -2,7 +2,7 @@
   "name": "ROT & RUIN co-op",
   "short_name": "R&R co-op",
   "description": "The co-op room client for ROT & RUIN. Needs a room server.",
-  "start_url": "./coop.html?room=RUIN",
+  "start_url": "./coop.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
