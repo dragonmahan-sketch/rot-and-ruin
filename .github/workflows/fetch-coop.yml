@@ -1,8 +1,10 @@
-name: Sync the co-op server
+name: Sync the co-op room server
 
-# The co-op room server is published as a zip at the address below. This keeps
-# coop/ and render.yaml in the repo identical to it, so a host can build from
-# this repository. It commits only when something actually changed.
+# The room server lives in coop/ and deployable config in render.yaml. Both are
+# published as a zip; this keeps the repository copies identical to it, so
+# Render builds what was actually tested. Commits only when something changed,
+# and retries the push because the game-files workflow may commit at the same
+# moment.
 
 on:
   push:
@@ -12,19 +14,25 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: repo-sync
+  cancel-in-progress: false
+
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Pull the co-op server bundle
+      - name: Pull the published room server
         run: |
           set -e
-          curl -fsSL -o /tmp/coop.zip https://rot-ruin-wbadxv.freebuff.site/rot-and-ruin-coop.zip
-          unzip -o /tmp/coop.zip -d .
+          base=https://rot-ruin-wbadxv.freebuff.site
+          curl -fsSL -o /tmp/coop.zip $base/rot-and-ruin-coop.zip
+          rm -rf coop
+          unzip -q -o /tmp/coop.zip -d .
           rm -f /tmp/coop.zip
-          ls -l coop
-          git add coop render.yaml
+          ls -l coop/server.js render.yaml
+          git add -A coop render.yaml
           if git diff --cached --quiet; then
             echo "Already up to date."
             exit 0
@@ -32,4 +40,9 @@ jobs:
           git config user.name "rot-and-ruin bot"
           git config user.email "actions@users.noreply.github.com"
           git commit -m "Sync the co-op room server [skip ci]"
-          git push
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            git pull --rebase --autostash
+            sleep 3
+          done
+          exit 1
