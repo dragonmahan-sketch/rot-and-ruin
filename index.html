@@ -142,6 +142,14 @@
     .optRow .optbtn{padding:6px 6px;font-size:9px}
     #keysDone,#ctlDone,#gfxDone{margin-top:8px !important;padding:8px 16px;font-size:10.5px}
   }
+  /* web copy only: the co-op link on the start screen */
+  a.cooplink{display:inline-block;text-decoration:none;border:1px solid #4c7a3d;
+    background:linear-gradient(180deg,#3d5f31,#2a4222);color:#eaf5e2;font-size:12px;
+    letter-spacing:.18em;padding:9px 20px;text-transform:uppercase;
+    transition:background .2s,box-shadow .2s}
+  a.cooplink:hover{background:linear-gradient(180deg,#4b7440,#33512a);
+    box-shadow:0 0 20px rgba(143,212,106,.24)}
+  a.cooplink:active{transform:translateY(1px)}
 </style>
 </head>
 <body>
@@ -177,6 +185,7 @@
       <div class="foot" id="contInfo"></div>
     </div>
     <button id="startBtn">Start surviving</button>
+    <div class="optwrap"><a class="cooplink" href="./coop.html">Play co-op</a></div>
     <div class="optwrap"><button id="keysBtn" class="ghost">Change movement keys</button></div>
     <div class="optwrap"><button id="ctlBtn" class="ghost" style="display:none">Phone controls</button></div>
     <div class="optwrap"><button id="gfxBtn" class="ghost">Graphics</button></div>
