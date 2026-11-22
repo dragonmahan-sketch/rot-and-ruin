@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ROT &amp; RUIN — co-op (M1)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0c0a; overflow: hidden;
+    font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; color: #cfe3c6; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  #hud { position: fixed; top: 10px; left: 12px; pointer-events: none;
+    text-shadow: 0 1px 2px #000; }
+  #hud b { color: #f0d78a; font-weight: 600; }
+  #peers { position: fixed; top: 10px; right: 12px; text-align: right; pointer-events: none; }
+  #hint { position: fixed; bottom: 10px; left: 12px; color: #7f9280; pointer-events: none; }
+  #state { color: #e0705a; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div>room <b id="room">—</b> &nbsp; you <b id="me">—</b></div>
+  <div>wave <b id="wave">1</b> &nbsp; kills <b id="kills">0</b> &nbsp; hp <b id="hp">100</b></div>
+  <div id="state"></div>
+</div>
+<div id="peers"></div>
+<div id="hint">WASD move · mouse aim · click to fire · R reload · F medkit · Shift sprint</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const params = new URLSearchParams(location.search);
+  const room = (params.get('room') || 'AB12').toUpperCase();
+  let me = params.get('id') || null;
+
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  let DPR = Math.min(2, window.devicePixelRatio || 1);
+  let VW = 0, VH = 0;
+
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    VW = cv.clientWidth; VH = cv.clientHeight;
+    cv.width = Math.floor(VW * DPR);
+    cv.height = Math.floor(VH * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  /* ---------------- state from the server ---------------- */
+  let prev = null;      // previous snapshot, for smoothing the drawing only
+  let next = null;      // newest snapshot
+  let prevAt = 0, nextAt = 0;
+  let events = 0, connected = false;
+
+  let es = null;
+  function connect() {
+    es = new EventSource('/events?room=' + encodeURIComponent(room) + '&id=' + encodeURIComponent(me));
+    es.onopen = () => { connected = true; };
+    es.onerror = () => { connected = false; };
+    es.onmessage = ev => {
+      try {
+        const snap = JSON.parse(ev.data);
+        prev = next; prevAt = nextAt;
+        next = snap; nextAt = performance.now();
+        events++;
+      } catch (e) {}
+    };
+  }
+
+  // no ?id= in the address: take the next free seat in the room
+  (async function join() {
+    if (!me) {
+      try {
+        const r = await fetch('/free-id?room=' + encodeURIComponent(room));
+        me = (await r.json()).id;
+      } catch (e) {
+        me = 'p' + Math.floor(Math.random() * 900 + 10);
+      }
+    }
+    document.getElementById('room').textContent = room;
+    document.getElementById('me').textContent = me;
+    connect();
+  })();
+
+  /* ---------------- input ---------------- */
+  const keys = new Set();
+  const mouse = { x: VW / 2, y: VH / 2, down: false };
+
+  addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (['w', 'a', 's', 'd', 'r', 'f', 'shift'].includes(k) || k.startsWith('arrow')) e.preventDefault();
+    keys.add(k);
+  });
+  addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+  addEventListener('blur', () => keys.clear());
+
+  cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  cv.addEventListener('mousedown', () => { mouse.down = true; });
+  addEventListener('mouseup', () => { mouse.down = false; });
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+
+  function myPlayer() {
+    if (!next) return null;
+    return next.players.find(p => p.id === me) || null;
+  }
+
+  let cam = { x: 0, y: 0, init: false };
+
+  function buildInput() {
+    const p = myPlayer();
+    let mx = 0, my = 0;
+    if (keys.has('w') || keys.has('arrowup')) my--;
+    if (keys.has('s') || keys.has('arrowdown')) my++;
+    if (keys.has('a') || keys.has('arrowleft')) mx--;
+    if (keys.has('d') || keys.has('arrowright')) mx++;
+    const l = Math.hypot(mx, my);
+    if (l > 0) { mx /= l; my /= l; }
+
+    let aim;
+    if (p) aim = Math.atan2(mouse.y - (VH / 2 + (p.y - cam.y)), mouse.x - (VW / 2 + (p.x - cam.x)));
+
+    return {
+      room, id: me, mx, my,
+      aim: Number.isFinite(aim) ? aim : undefined,
+      fire: mouse.down,
+      reload: keys.has('r'),
+      medkit: keys.has('f'),
+      sprint: keys.has('shift')
+    };
+  }
+
+  let lastSent = 0;
+  function sendInput() {
+    const body = JSON.stringify(buildInput());
+    // keep the request short; the server only cares about the latest input
+    fetch('/input', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true })
+      .catch(() => {});
+  }
+
+  /* ---------------- drawing ---------------- */
+  const ZCOL = ['#5f7a45', '#816542', '#74494a'];
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function currentEntities() {
+    // draw a blend between the last two snapshots so movement is not a slide show
+    if (!next) return null;
+    const span = Math.max(1, nextAt - prevAt);
+    const t = Math.min(1, (performance.now() - nextAt) / 50);
+    const prevById = new Map();
+    if (prev) for (const z of prev.zombies) prevById.set(z.id, z);
+    const pPrev = new Map();
+    if (prev) for (const p of prev.players) pPrev.set(p.id, p);
+
+    return {
+      zombies: next.zombies.map(z => {
+        const o = prevById.get(z.id);
+        return o ? { ...z, x: lerp(o.x, z.x, t), y: lerp(o.y, z.y, t) } : z;
+      }),
+      players: next.players.map(p => {
+        const o = pPrev.get(p.id);
+        return o ? { ...p, x: lerp(o.x, p.x, t), y: lerp(o.y, p.y, t) } : p;
+      })
+    };
+  }
+
+  function draw() {
+    requestAnimationFrame(draw);
+
+    const nowP = myPlayer();
+    if (next) {
+      if (nowP) {
+        // camera: centre on you, clamped to nothing for now (the server sends no map)
+        if (!cam.init) { cam.x = nowP.x; cam.y = nowP.y; cam.init = true; }
+        cam.x = lerp(cam.x, nowP.x, 0.18);
+        cam.y = lerp(cam.y, nowP.y, 0.18);
+      }
+    }
+
+    ctx.fillStyle = '#0d1410';
+    ctx.fillRect(0, 0, VW, VH);
+
+    const ox = VW / 2 - cam.x;
+    const oy = VH / 2 - cam.y;
+
+    // ground grid, so movement is readable
+    const g = 200;
+    ctx.strokeStyle = 'rgba(120,160,110,0.10)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const x0 = Math.floor((cam.x - VW / 2) / g) * g, x1 = cam.x + VW / 2;
+    const y0 = Math.floor((cam.y - VH / 2) / g) * g, y1 = cam.y + VH / 2;
+    for (let x = x0; x <= x1; x += g) { ctx.moveTo(x + ox, 0); ctx.lineTo(x + ox, VH); }
+    for (let y = y0; y <= y1; y += g) { ctx.moveTo(0, y + oy); ctx.lineTo(VW, y + oy); }
+    ctx.stroke();
+
+    const ents = currentEntities();
+    if (!ents) {
+      ctx.fillStyle = '#7f9280';
+      ctx.fillText(connected ? 'waiting for the first snapshot…' : 'connecting…', 20, VH / 2);
+      return;
+    }
+
+    // pickups
+    for (const k of next.pickups) {
+      ctx.fillStyle = k.ty === 'medkit' ? '#9fe08a' : '#e2c766';
+      ctx.fillRect(k.x + ox - 5, k.y + oy - 5, 10, 10);
+    }
+
+    // boss caches
+    for (const b of next.bossCaches) {
+      ctx.strokeStyle = b.locked ? '#e0705a' : '#f0d78a';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(b.x + ox - 14, b.y + oy - 14, 28, 28);
+    }
+
+    // bullets
+    ctx.fillStyle = '#ffe08a';
+    for (const b of next.bullets) ctx.fillRect(b.x + ox - 2, b.y + oy - 2, 4, 4);
+
+    // zombies
+    for (const z of ents.zombies) {
+      const r = z.b ? 26 : (z.ty === 2 ? 15 : z.ty === 1 ? 8 : 10);
+      ctx.beginPath();
+      ctx.arc(z.x + ox, z.y + oy, r, 0, Math.PI * 2);
+      ctx.fillStyle = z.b ? '#8d4a4a' : ZCOL[z.ty] || ZCOL[0];
+      ctx.fill();
+      if (z.hp < 40) {
+        ctx.strokeStyle = 'rgba(224,112,90,0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    // survivors
+    for (const p of ents.players) {
+      const x = p.x + ox, y = p.y + oy;
+      ctx.beginPath();
+      ctx.arc(x, y, 13, 0, Math.PI * 2);
+      ctx.fillStyle = p.alive ? (p.id === me ? '#8ad9e8' : '#cfe3c6') : '#4a4a4a';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // facing
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(p.a) * 22, y + Math.sin(p.a) * 22);
+      ctx.strokeStyle = p.id === me ? '#8ad9e8' : '#cfe3c6';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      // name tag
+      ctx.fillStyle = p.id === me ? '#8ad9e8' : '#9fb69f';
+      ctx.font = '11px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.id, x, y - 20);
+      ctx.textAlign = 'left';
+    }
+
+    // hud numbers
+    const mine = nowP || {};
+    document.getElementById('wave').textContent = next.wave;
+    document.getElementById('kills').textContent = next.kills;
+    document.getElementById('hp').textContent = mine.hp !== undefined ? mine.hp : '—';
+    document.getElementById('state').textContent = connected ? '' : 'disconnected';
+    document.getElementById('peers').innerHTML =
+      next.players.map(p => '<div>' + p.id + ' · ' + p.hp + 'hp' + (p.alive ? '' : ' · down') + '</div>').join('') +
+      '<div style="color:#6f8270">' + next.zombies.length + ' zombies · tick ' + next.tick + '</div>';
+  }
+
+  // 30 Hz input
+  setInterval(sendInput, 33);
+  draw();
+})();
+</script>
+</body>
+</html>

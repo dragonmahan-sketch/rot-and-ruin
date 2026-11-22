@@ -1,0 +1,13 @@
+{
+  "name": "rot-and-ruin-coop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ROT & RUIN co-op room server (M1): one simulation per room, snapshots over server-sent events.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
