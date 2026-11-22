@@ -1,0 +1,35 @@
+name: Fetch the game files
+
+# The nine files are published as a zip at the address below. This workflow
+# pulls them into the repository once, so Pages can serve them. If the files
+# are already here it does nothing, so it is safe to re-run by hand.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pull the game files from the published bundle
+        run: |
+          set -e
+          if [ -f index.html ]; then
+            echo "Game files already present, nothing to do."
+            exit 0
+          fi
+          curl -fsSL -o /tmp/game.zip https://rot-ruin-wbadxv.freebuff.site/rot-and-ruin-phone.zip
+          unzip -o /tmp/game.zip -d .
+          rm -f /tmp/game.zip
+          ls -l
+          git config user.name "rot-and-ruin bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Add the nine game files [skip ci]"
+          git push
