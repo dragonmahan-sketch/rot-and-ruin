@@ -1,8 +1,8 @@
-name: Fetch the co-op server
+name: Sync the co-op server
 
-# The co-op room server is published as a zip at the address below. This pulls
-# it into the repository once so a host can build it from this repo. If the
-# files are already here it does nothing, so it is safe to re-run by hand.
+# The co-op room server is published as a zip at the address below. This keeps
+# coop/ and render.yaml in the repo identical to it, so a host can build from
+# this repository. It commits only when something actually changed.
 
 on:
   push:
@@ -13,23 +13,23 @@ permissions:
   contents: write
 
 jobs:
-  fetch:
+  sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Pull the co-op server bundle
         run: |
           set -e
-          if [ -f coop/server.js ]; then
-            echo "Co-op server already present, nothing to do."
-            exit 0
-          fi
           curl -fsSL -o /tmp/coop.zip https://rot-ruin-wbadxv.freebuff.site/rot-and-ruin-coop.zip
           unzip -o /tmp/coop.zip -d .
           rm -f /tmp/coop.zip
           ls -l coop
+          git add coop render.yaml
+          if git diff --cached --quiet; then
+            echo "Already up to date."
+            exit 0
+          fi
           git config user.name "rot-and-ruin bot"
           git config user.email "actions@users.noreply.github.com"
-          git add coop render.yaml
-          git commit -m "Add the co-op room server [skip ci]"
+          git commit -m "Sync the co-op room server [skip ci]"
           git push
