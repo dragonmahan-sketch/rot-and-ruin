@@ -1,8 +1,9 @@
-name: Fetch the game files
+name: Sync the published game files
 
-# The nine files are published as a zip at the address below. This workflow
-# pulls them into the repository once, so Pages can serve them. If the files
-# are already here it does nothing, so it is safe to re-run by hand.
+# index.html, coop.html, the service worker, the manifest and the icons are
+# published as a zip at the address below. This keeps the copies in the
+# repository identical to it, so Pages always serves what was built. It
+# commits only when something actually changed.
 
 on:
   push:
@@ -13,23 +14,25 @@ permissions:
   contents: write
 
 jobs:
-  fetch:
+  sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Pull the game files from the published bundle
+      - name: Pull the published game files
         run: |
           set -e
-          if [ -f index.html ]; then
-            echo "Game files already present, nothing to do."
-            exit 0
-          fi
           curl -fsSL -o /tmp/game.zip https://rot-ruin-wbadxv.freebuff.site/rot-and-ruin-phone.zip
           unzip -o /tmp/game.zip -d .
           rm -f /tmp/game.zip
-          ls -l
+          ls -l index.html coop.html
+          git add index.html coop.html sw.js manifest.webmanifest \
+                  icon-192.png icon-512.png icon-192-maskable.png \
+                  icon-512-maskable.png apple-touch-icon.png
+          if git diff --cached --quiet; then
+            echo "Already up to date."
+            exit 0
+          fi
           git config user.name "rot-and-ruin bot"
           git config user.email "actions@users.noreply.github.com"
-          git add -A
-          git commit -m "Add the nine game files [skip ci]"
+          git commit -m "Sync the published game files [skip ci]"
           git push
