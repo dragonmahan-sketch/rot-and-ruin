@@ -38,6 +38,27 @@
   @media (max-width: 900px) { #hint { display: none; } }
   #state { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
     color: #e0705a; font-size: 13px; }
+  #serverBtn { position: fixed; left: 50%; top: 12px; transform: translateX(-50%);
+    background: transparent; border: 1px solid rgba(143,212,106,0.22); color: #6f8a63;
+    font: inherit; font-size: 10px; letter-spacing: 0.14em; padding: 5px 10px;
+    text-transform: uppercase; cursor: pointer; border-radius: 4px; }
+  #serverBtn:hover { color: #cfe3c6; }
+  #setup { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(5,8,5,0.86); padding: 24px; z-index: 20; }
+  #setup[hidden] { display: none; }
+  #setup .box { max-width: 440px; width: 100%; text-align: center; padding: 26px 28px;
+    border: 1px solid #2c3a28; background: linear-gradient(180deg, rgba(18,26,16,0.97), rgba(10,14,9,0.97)); }
+  #setup h2 { margin: 0 0 8px; font-size: 15px; letter-spacing: 0.2em; color: #e8f3e0; }
+  #setup p { margin: 0 0 16px; color: #8fa387; font-size: 11px; line-height: 1.7; letter-spacing: 0.04em; }
+  #setup input { width: 100%; padding: 9px 11px; background: #0d140c; color: #cfe3c6;
+    font: inherit; font-size: 12px; border: 1px solid #2c3a28; }
+  #setup input:focus { outline: none; border-color: #4c7a3d; }
+  #setup .row { display: flex; gap: 8px; margin-top: 10px; }
+  #setup button { flex: 1; background: transparent; border: 1px solid #2c3a28; color: #9fb396;
+    font: inherit; font-size: 10px; letter-spacing: 0.16em; padding: 9px 12px;
+    text-transform: uppercase; cursor: pointer; }
+  #setup button.main { border-color: #4c7a3d; background: linear-gradient(180deg,#3d5f31,#2a4222); color: #eaf5e2; }
+  #setup button:hover { color: #eaf5e2; }
 </style>
 </head>
 <body>
@@ -63,10 +84,24 @@
 </div>
 
 <div id="peers" class="panel"></div>
+<button id="serverBtn" title="Room server">server</button>
+
+<div id="setup" hidden>
+  <div class="box">
+    <h2>ROOM SERVER</h2>
+    <p>Where is the co-op server? Paste its address — for example<br><b>rot-and-ruin-coop.onrender.com</b></p>
+    <input id="setupHost" type="url" spellcheck="false" autocapitalize="off"
+           placeholder="https://your-service.onrender.com">
+    <div class="row">
+      <button id="setupSave" class="main">Save</button>
+      <button id="setupCancel">Cancel</button>
+    </div>
+  </div>
+</div>
 <div id="hint">WASD move · mouse aim · click fire · R reload · F medkit · Shift sprint</div>
 <div id="state"></div>
 
-<script src="/render.js"></script>
+<script src="./render.js"></script>
 <script>
 (function () {
   'use strict';
@@ -74,6 +109,20 @@
   const params = new URLSearchParams(location.search);
   let room = (params.get('room') || '').toUpperCase();
   let me = params.get('id') || null;
+
+  /* Which room server to talk to. Empty means "the server this page came
+     from"; a standalone copy (the Android bundle, a static host) names it with
+     ?host= or remembers it locally. */
+  function readHost() {
+    let h = params.get('host') || '';
+    if (!h) { try { h = localStorage.getItem('rotruin.coop.host') || ''; } catch (e) {} }
+    h = String(h).trim();
+    if (!h) return '';
+    if (!/^https?:\/\//i.test(h)) h = 'https://' + h;
+    return h.replace(/\/+$/, '');
+  }
+  const HOST = readHost();
+  const url = p => HOST + p;
 
   // no room in the address: make one and put it in the URL, so the address in
   // the bar is the invite and a friend lands in the same room
@@ -136,7 +185,7 @@
 
   let es = null;
   function connect() {
-    es = new EventSource('/events?room=' + encodeURIComponent(room) + '&id=' + encodeURIComponent(me));
+    es = new EventSource(url('/events?room=' + encodeURIComponent(room) + '&id=' + encodeURIComponent(me)));
     es.onopen = () => { connected = true; };
     es.onerror = () => { connected = false; };
     es.onmessage = ev => {
@@ -152,7 +201,7 @@
   (async function join() {
     if (!me) {
       try {
-        const r = await fetch('/free-id?room=' + encodeURIComponent(room));
+        const r = await fetch(url('/free-id?room=' + encodeURIComponent(room)));
         me = (await r.json()).id;
       } catch (e) {
         me = 'p' + Math.floor(Math.random() * 900 + 10);
@@ -160,6 +209,24 @@
     }
     connect();
   })();
+
+  /* stand-alone copies (the Android bundle, any static host) need the server
+     address once; same-origin hosting never shows this */
+  const setupEl = document.getElementById('setup');
+  const setupInput = document.getElementById('setupHost');
+  setupInput.value = HOST;
+  function openSetup() { setupEl.hidden = false; setupInput.focus(); }
+  document.getElementById('serverBtn').addEventListener('click', openSetup);
+  document.getElementById('setupCancel').addEventListener('click', () => { setupEl.hidden = true; });
+  document.getElementById('setupSave').addEventListener('click', () => {
+    let v = setupInput.value.trim();
+    if (!v) return;
+    if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+    v = v.replace(/\/+$/, '');
+    try { localStorage.setItem('rotruin.coop.host', v); } catch (e) {}
+    location.reload();
+  });
+  if (!HOST && location.protocol === 'file:') openSetup();
 
   /* ---------------- input ---------------- */
   const keys = new Set();
@@ -201,7 +268,7 @@
   }
 
   setInterval(() => {
-    fetch('/input', {
+    fetch(url('/input'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildInput()), keepalive: true
     }).catch(() => {});

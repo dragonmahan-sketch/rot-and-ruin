@@ -32,15 +32,26 @@ function getRoom(code, createIfMissing) {
   return room;
 }
 
+/* a stand-alone co-op app lives on another origin (a downloaded bundle, a
+   static host), so every response says it is fine to call from anywhere */
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Max-Age': '86400'
+};
+
 function json(res, code, body) {
   const s = JSON.stringify(body);
-  res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  res.writeHead(code, Object.assign({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, CORS));
   res.end(s);
 }
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const roomCode = (url.searchParams.get('room') || 'AB12').toUpperCase();
+
+  if (req.method === 'OPTIONS') { res.writeHead(204, CORS); res.end(); return; }
   const playerId = url.searchParams.get('id') || ('p' + Math.floor(Math.random() * 1000));
 
   if (url.pathname === '/' || url.pathname === '/index.html') {
@@ -92,12 +103,12 @@ const server = http.createServer((req, res) => {
     const joined = room.join(playerId);
     if (!joined.ok) { json(res, 409, { error: joined.reason }); return; }
 
-    res.writeHead(200, {
+    res.writeHead(200, Object.assign({
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-store',
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no'
-    });
+    }, CORS));
     res.write('retry: 1000\n\n');
     // a fresh client needs the world immediately, then one per tick
     res.write('data: ' + JSON.stringify(joined.snapshot) + '\n\n');
