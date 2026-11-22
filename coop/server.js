@@ -166,7 +166,27 @@ setInterval(() => {
 
 setInterval(() => mgr.sweep(60000), 30000);
 
+
+/* Announce where this server ended up, so the address can be found without
+   anybody copying it. Render sets RENDER_EXTERNAL_URL for a web service; the
+   message goes to a public topic and carries nothing but that URL. Set
+   ANNOUNCE_TOPIC to change the topic, or ANNOUNCE=off to switch it off. */
+const ANNOUNCE_TOPIC = process.env.ANNOUNCE_TOPIC || 'rotruin-host-9f3c2a7b';
+
+function announce() {
+  if (String(process.env.ANNOUNCE || '').toLowerCase() === 'off') return;
+  const url = process.env.RENDER_EXTERNAL_URL ||
+    (process.env.RENDER_EXTERNAL_HOSTNAME ? 'https://' + process.env.RENDER_EXTERNAL_HOSTNAME : '');
+  if (!url || typeof fetch !== 'function') return;
+  fetch('https://ntfy.sh/' + ANNOUNCE_TOPIC, {
+    method: 'POST',
+    headers: { Title: 'rot-ruin room server', Tags: 'video_game' },
+    body: url,
+  }).catch(() => {});
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log('ROT & RUIN co-op (M1) listening on http://0.0.0.0:' + PORT);
   console.log('room codes: use ?room=AB12 in the page URL');
+  announce();
 });
