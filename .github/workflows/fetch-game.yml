@@ -2,9 +2,9 @@ name: Sync the published files
 
 # One job publishes everything the site serves into the repository, so Pages
 # serves exactly what was built: the game files, the co-op page and its own
-# web-app manifest, the co-op app zip, and the room server Render deploys from
-# coop/. The checkout is clean, so staging everything only ever picks up what
-# this job downloaded.
+# web-app manifest, the phone zip itself as a download, the co-op app zip, and
+# the room server Render deploys from coop/. The checkout is clean, so staging
+# everything only ever picks up what this job downloaded.
 
 on:
   push:
@@ -23,15 +23,14 @@ jobs:
         run: |
           set -e
           base=https://rot-ruin-wbadxv.freebuff.site
-          curl -fsSL -o /tmp/game.zip $base/rot-and-ruin-phone.zip
-          unzip -o /tmp/game.zip -d .
-          rm -f /tmp/game.zip
+          curl -fsSL -o rot-and-ruin-phone.zip $base/rot-and-ruin-phone.zip
+          unzip -o rot-and-ruin-phone.zip -d .
           curl -fsSL -o rot-and-ruin-coop-app.zip $base/rot-and-ruin-coop-app.zip
           curl -fsSL -o /tmp/coop.zip $base/rot-and-ruin-coop.zip
           rm -rf coop
           unzip -q -o /tmp/coop.zip -d .
           rm -f /tmp/coop.zip
-          ls -l index.html coop.html coop.webmanifest rot-and-ruin-coop-app.zip coop/server.js render.yaml
+          ls -l index.html coop.html coop.webmanifest rot-and-ruin-phone.zip rot-and-ruin-coop-app.zip coop/server.js render.yaml
           git add -A
           if git diff --cached --quiet; then
             echo "Already up to date."
