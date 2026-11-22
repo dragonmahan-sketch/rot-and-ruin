@@ -3,7 +3,8 @@ name: Sync the published game files
 # index.html, coop.html, the co-op app zip, the service worker, the manifest and
 # the icons are published at the addresses below. This keeps the copies in the
 # repository identical to them, so Pages serves what was actually built. It
-# commits only when something actually changed.
+# commits only when something actually changed, and retries the push because the
+# room-server workflow may land a commit at the same moment.
 
 on:
   push:
@@ -12,6 +13,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: repo-sync
+  cancel-in-progress: false
 
 jobs:
   sync:
@@ -37,4 +42,9 @@ jobs:
           git config user.name "rot-and-ruin bot"
           git config user.email "actions@users.noreply.github.com"
           git commit -m "Sync the published game files [skip ci]"
-          git push
+          for i in 1 2 3 4 5; do
+            if git push; then exit 0; fi
+            git pull --rebase --autostash
+            sleep 3
+          done
+          exit 1
