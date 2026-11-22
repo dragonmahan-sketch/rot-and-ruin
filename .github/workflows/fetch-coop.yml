@@ -1,22 +1,15 @@
-name: Sync the co-op room server
+name: Sync the co-op room server (manual)
 
-# The room server lives in coop/ and deployable config in render.yaml. Both are
-# published as a zip; this keeps the repository copies identical to it, so
-# Render builds what was actually tested. Commits only when something changed,
-# and retries the push because the game-files workflow may commit at the same
-# moment.
+# Kept only for a manual run from the Actions tab. The automatic sync lives in
+# fetch-game.yml now, which publishes the room server along with the game files
+# in one job — two separate workflows pushed at the same moment and the second
+# one was always rejected.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: repo-sync
-  cancel-in-progress: false
 
 jobs:
   sync:
