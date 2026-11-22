@@ -1,10 +1,8 @@
-name: Sync the published game files
+name: Sync the published files
 
-# index.html, coop.html, the co-op app zip, the service worker, the manifest and
-# the icons are published at the addresses below. This keeps the copies in the
-# repository identical to them, so Pages serves what was actually built. It
-# commits only when something actually changed, and retries the push because the
-# room-server workflow may land a commit at the same moment.
+# One job publishes everything the site serves into the repository, so Pages
+# serves exactly what was built: the game files, the co-op app zip and the
+# room server Render deploys from coop/.
 
 on:
   push:
@@ -14,16 +12,12 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: repo-sync
-  cancel-in-progress: false
-
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Pull the published game files
+      - name: Pull the published files
         run: |
           set -e
           base=https://rot-ruin-wbadxv.freebuff.site
@@ -31,17 +25,22 @@ jobs:
           unzip -o /tmp/game.zip -d .
           rm -f /tmp/game.zip
           curl -fsSL -o rot-and-ruin-coop-app.zip $base/rot-and-ruin-coop-app.zip
-          ls -l index.html coop.html rot-and-ruin-coop-app.zip
-          git add index.html coop.html rot-and-ruin-coop-app.zip sw.js \
+          curl -fsSL -o /tmp/coop.zip $base/rot-and-ruin-coop.zip
+          rm -rf coop
+          unzip -q -o /tmp/coop.zip -d .
+          rm -f /tmp/coop.zip
+          ls -l index.html coop.html rot-and-ruin-coop-app.zip coop/server.js render.yaml
+          git add -A index.html coop.html rot-and-ruin-coop-app.zip sw.js \
                   manifest.webmanifest icon-192.png icon-512.png \
-                  icon-192-maskable.png icon-512-maskable.png apple-touch-icon.png
+                  icon-192-maskable.png icon-512-maskable.png apple-touch-icon.png \
+                  coop render.yaml
           if git diff --cached --quiet; then
             echo "Already up to date."
             exit 0
           fi
           git config user.name "rot-and-ruin bot"
           git config user.email "actions@users.noreply.github.com"
-          git commit -m "Sync the published game files [skip ci]"
+          git commit -m "Sync the published files [skip ci]"
           for i in 1 2 3 4 5; do
             if git push; then exit 0; fi
             git pull --rebase --autostash
