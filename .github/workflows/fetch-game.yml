@@ -1,8 +1,8 @@
 name: Sync the published game files
 
-# index.html, coop.html, the service worker, the manifest and the icons are
-# published as a zip at the address below. This keeps the copies in the
-# repository identical to it, so Pages always serves what was built. It
+# index.html, coop.html, the co-op app zip, the service worker, the manifest and
+# the icons are published at the addresses below. This keeps the copies in the
+# repository identical to them, so Pages serves what was actually built. It
 # commits only when something actually changed.
 
 on:
@@ -21,13 +21,15 @@ jobs:
       - name: Pull the published game files
         run: |
           set -e
-          curl -fsSL -o /tmp/game.zip https://rot-ruin-wbadxv.freebuff.site/rot-and-ruin-phone.zip
+          base=https://rot-ruin-wbadxv.freebuff.site
+          curl -fsSL -o /tmp/game.zip $base/rot-and-ruin-phone.zip
           unzip -o /tmp/game.zip -d .
           rm -f /tmp/game.zip
-          ls -l index.html coop.html
-          git add index.html coop.html sw.js manifest.webmanifest \
-                  icon-192.png icon-512.png icon-192-maskable.png \
-                  icon-512-maskable.png apple-touch-icon.png
+          curl -fsSL -o rot-and-ruin-coop-app.zip $base/rot-and-ruin-coop-app.zip
+          ls -l index.html coop.html rot-and-ruin-coop-app.zip
+          git add index.html coop.html rot-and-ruin-coop-app.zip sw.js \
+                  manifest.webmanifest icon-192.png icon-512.png \
+                  icon-192-maskable.png icon-512-maskable.png apple-touch-icon.png
           if git diff --cached --quiet; then
             echo "Already up to date."
             exit 0
