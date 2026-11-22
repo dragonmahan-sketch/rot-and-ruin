@@ -8,7 +8,7 @@
   html,body{margin:0;min-height:100%;background:#0a0c0a;color:#cfe3c6;
     font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
   body{display:flex;align-items:center;justify-content:center;padding:24px}
-  .panel{max-width:560px;text-align:center;padding:38px 42px;border:1px solid #2c3a28;
+  .panel{max-width:560px;width:100%;text-align:center;padding:38px 42px;border:1px solid #2c3a28;
     background:linear-gradient(180deg,rgba(18,26,16,.97),rgba(10,14,9,.97));
     box-shadow:0 30px 80px rgba(0,0,0,.8),inset 0 0 60px rgba(120,200,90,.04)}
   .eyebrow{letter-spacing:.42em;font-size:11px;color:#6f8a63;margin-bottom:14px;text-transform:uppercase}
@@ -23,24 +23,103 @@
     background:linear-gradient(180deg,#3d5f31,#2a4222);color:#eaf5e2;font-size:14px;
     letter-spacing:.22em;padding:15px 34px;text-transform:uppercase}
   a.play:hover{background:linear-gradient(180deg,#4b7440,#33512a);box-shadow:0 0 26px rgba(143,212,106,.28)}
-  .foot{margin-top:22px;font-size:11px;color:#5e7057;letter-spacing:.1em;line-height:1.9}
+  .share{display:block;margin:14px auto 0;background:transparent;border:1px solid #2c3a28;color:#9fb396;
+    font:inherit;font-size:10px;letter-spacing:.16em;padding:9px 16px;text-transform:uppercase;cursor:pointer}
+  .share:hover{color:#d9e6d2;background:rgba(143,212,106,.06)}
+  .foot{margin-top:16px;font-size:11px;color:#5e7057;letter-spacing:.1em;line-height:1.9}
   .foot code{color:#9fb396;letter-spacing:.02em}
+  .ok{color:#8fd46a}
   a.back{color:#6f8a63;font-size:11px;letter-spacing:.14em;text-decoration:none}
   a.back:hover{color:#cfe3c6}
+  .setter{margin:22px 0 4px;text-align:left;border-top:1px solid #1e271c;padding-top:18px}
+  .setter label{display:block;font-size:10px;letter-spacing:.2em;color:#6f8a63;margin-bottom:6px;text-transform:uppercase}
+  .setter input{width:100%;padding:9px 11px;background:#0d140c;color:#cfe3c6;font:inherit;font-size:12px;
+    border:1px solid #2c3a28;letter-spacing:.02em}
+  .setter input:focus{outline:none;border-color:#4c7a3d;box-shadow:0 0 0 2px rgba(143,212,106,.18)}
+  .setter button{margin-top:8px;background:transparent;border:1px solid #2c3a28;color:#9fb396;
+    font:inherit;font-size:10px;letter-spacing:.16em;padding:7px 14px;text-transform:uppercase;cursor:pointer}
+  .setter button:hover{color:#d9e6d2;background:rgba(143,212,106,.06)}
 </style>
 </head>
 <body>
   <div class="panel">
     <div class="eyebrow">Rot &amp; Ruin</div>
     <h1>CO-<span>OP</span> ROOM</h1>
-    <p class="sub">Two survivors, one world. Send a friend this page and you both end up in the same room.</p>
+    <p class="sub">Two survivors, one world. Send a friend the link below and you both end up in the same room.</p>
     <div class="room">ROOM <b>RUIN</b></div>
-    <div><a class="play" href="https://rot-and-ruin-coop.onrender.com/?room=RUIN">Enter the room</a></div>
+    <div><a class="play" id="play" href="#">Enter the room</a></div>
+    <button class="share" id="share">Copy a link for a friend</button>
+    <div class="foot" id="where"></div>
+    <div class="setter">
+      <label for="host">Server address</label>
+      <input id="host" type="url" spellcheck="false" autocapitalize="off"
+             placeholder="https://your-service.onrender.com">
+      <button id="save">Save address</button>
+    </div>
     <div class="foot">
-      The room runs on <code>rot-and-ruin-coop.onrender.com</code><br>
-      It sleeps when nobody is playing; the first visit can take a minute to wake it.<br>
+      The room sleeps when nobody is playing; the first visit can take a minute to wake it.<br>
       <a class="back" href="./index.html">Back to single player</a>
     </div>
   </div>
+<script>
+(function () {
+  'use strict';
+  var DEFAULT_HOST = 'https://rot-and-ruin-coop.onrender.com';
+  var ROOM = 'RUIN';
+  var KEY = 'rotruin.coop.host';
+
+  function clean(v) {
+    v = String(v || '').trim();
+    if (!v) return '';
+    if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+    return v.replace(/\/+$/, '');
+  }
+
+  var q = new URLSearchParams(location.search);
+  var stored = '';
+  try { stored = localStorage.getItem(KEY) || ''; } catch (e) {}
+  var host = clean(q.get('host')) || clean(stored) || clean(DEFAULT_HOST);
+
+  var input = document.getElementById('host');
+  var play = document.getElementById('play');
+  var where = document.getElementById('where');
+
+  function apply(h) {
+    host = clean(h);
+    play.href = host + '/?room=' + ROOM;
+    input.value = host;
+    where.innerHTML = 'Room server: <code>' + host.replace(/^https?:\/\//, '') + '</code>';
+  }
+  apply(host);
+
+  document.getElementById('save').addEventListener('click', function () {
+    var v = clean(input.value);
+    if (!v) { input.focus(); return; }
+    try { localStorage.setItem(KEY, v); } catch (e) {}
+    apply(v);
+    var u = new URL(location.href);
+    u.searchParams.set('host', v);
+    history.replaceState(null, '', u);
+    where.innerHTML = '<span class="ok">Saved.</span> Room server: <code>' +
+      v.replace(/^https?:\/\//, '') + '</code>';
+  });
+
+  document.getElementById('share').addEventListener('click', function () {
+    var u = new URL(location.href);
+    u.searchParams.set('host', host);
+    var link = u.toString();
+    var btn = document.getElementById('share');
+    var done = function () {
+      btn.textContent = 'Link copied';
+      setTimeout(function () { btn.textContent = 'Copy a link for a friend'; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(done, function () { window.prompt('Copy this link:', link); });
+    } else {
+      window.prompt('Copy this link:', link);
+    }
+  });
+})();
+</script>
 </body>
 </html>
