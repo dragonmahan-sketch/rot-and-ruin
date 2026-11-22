@@ -17,6 +17,37 @@ icon-*.png              the home screen icons
 apple-touch-icon.png    the iOS icon
 
 
+ON AN IPHONE
+-----------
+iOS can unzip this without any app: in Files, tap the zip once and it unpacks
+into a folder beside it. You then have the game and the co-op page as files.
+
+Two things to know before you rely on those files:
+
+  - Safari will not run the game from the Files app. A page opened as a local
+    file has no service worker and no storage, so the offline copy cannot work
+    that way. The files are for keeping and for putting on a server.
+  - The way to play on an iPhone is the same files, served: open the site
+    address below in Safari and add it to the home screen. That copy does work
+    offline, because it runs from the site.
+
+Putting the game on the home screen:
+
+ 1. Open Safari (not Chrome - Safari is the browser that does this properly).
+ 2. Go to   https://rot-ruin-wbadxv.freebuff.site/
+ 3. Tap Share - the square with the arrow coming out of the top.
+ 4. Scroll the sheet, tap "Add to Home Screen", then "Add".
+ 5. Open the icon from the home screen, not from Safari, and let the start
+    screen finish drawing once. That is when it caches itself.
+ 6. Airplane Mode on, open the icon again. That is the offline check.
+
+The co-op page on an iPhone: same taps on https://rot-ruin-wbadxv.freebuff.site/coop.html, but save the server
+address BEFORE adding it to the home screen, and expect it not to work in
+Airplane Mode - it needs the room server. iOS also clears stored data for sites
+left unused for a long time, so the co-op icon may ask for the address again
+one day. Retype it and save; nothing is broken.
+
+
 INSTALL THE CO-OP APP (Android)
 -------------------------------
 The co-op app needs the room server; it does not work offline.
@@ -38,8 +69,8 @@ If Chrome does not offer "Install app" the first time, reload the page once and
 reopen the menu. Chrome reads the manifest when the page loads.
 
 
-INSTALL THE GAME (the one that works offline)
-----------------------------------------------
+INSTALL THE GAME ON ANDROID (the one that works offline)
+-------------------------------------------------------
  1. Chrome, open   https://rot-ruin-wbadxv.freebuff.site/
  2. Three-dot menu, "Install app", "Install". The icon is named ROT & RUIN.
  3. Open it once, on the start screen, so it caches itself.
