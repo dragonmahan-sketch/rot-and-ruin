@@ -31,8 +31,19 @@
   'use strict';
 
   const params = new URLSearchParams(location.search);
-  const room = (params.get('room') || 'AB12').toUpperCase();
+  let room = (params.get('room') || '').toUpperCase();
   let me = params.get('id') || null;
+
+  // no room in the address: make one and put it in the URL, so the address in
+  // the bar is the invite and a friend lands in the same room
+  if (!room) {
+    const A = 'ACDEFGHJKLMNPQRTUVWXY';
+    room = '';
+    for (let i = 0; i < 4; i++) room += A[Math.floor(Math.random() * A.length)];
+    const u = new URL(location.href);
+    u.searchParams.set('room', room);
+    history.replaceState(null, '', u);
+  }
 
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
