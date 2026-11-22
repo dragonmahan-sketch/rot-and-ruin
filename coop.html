@@ -93,6 +93,10 @@
   }
   apply(host);
 
+  /* a link made by "Copy a link for a friend" carries go=1: the friend lands
+     in the room itself, with nothing to type and nothing to tap */
+  if (q.get('go') === '1' && host) { location.replace(play.href); return; }
+
   document.getElementById('save').addEventListener('click', function () {
     var v = clean(input.value);
     if (!v) { input.focus(); return; }
@@ -108,7 +112,10 @@
   document.getElementById('share').addEventListener('click', function () {
     var u = new URL(location.href);
     u.searchParams.set('host', host);
-    var link = u.toString();
+    u.searchParams.set('room', ROOM);
+    u.searchParams.set('go', '1');
+    /* keep the address readable in the link rather than percent-encoded */
+    var link = u.toString().replace('host=' + encodeURIComponent(host), 'host=' + host);
     var btn = document.getElementById('share');
     var done = function () {
       btn.textContent = 'Link copied';
