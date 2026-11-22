@@ -82,32 +82,63 @@ in airplane mode you get "connecting..." and then "disconnected". That is
 correct: the room server is the one thing that cannot be cached.
 
 
-SAVING THE ADDRESS, ONCE
-------------------------
-The address field is the first thing on the co-op page. Paste the server
-address, press the go key on the keyboard or tap SAVE ADDRESS, and the field
-folds away to one line: the server name with a small "change" under it. That
-phone keeps it from then on. To move to a different server later, tap "change",
-type the new address and save again.
+SAVING THE SERVER ADDRESS, ONCE
+-------------------------------
+The room lives on a server, and the co-op page has to be told where it is. You
+do this once per phone.
+
+ 1. On the co-op page the first thing you see is a box labelled SERVER ADDRESS.
+ 2. Press and hold in the box and choose Paste, or type the address in. Either
+    is fine.
+ 3. Tap SAVE ADDRESS. The go key on the keyboard does the same thing.
+ 4. The box folds away into one line: "Server" and the name, with a small
+    "change" under it. That folded line is the sign it worked, and the phone
+    keeps it from then on.
+
+Nothing is checked when you save - the address is only remembered. You find out
+whether it is right on the next step.
+
+ 5. Tap ENTER THE ROOM. The game should open in your room. If you get a plain
+    "Not Found" page instead, the address is wrong: tap "change", paste the
+    right one and save again.
+ 6. If the room has been asleep, the first tap can sit on "connecting" for up
+    to a minute while the server wakes up. That is normal on free hosting. Wait
+    it out rather than tapping again.
+
+To move to a different server later, tap "change", paste the new address and
+save again.
+
+If you put the co-op page on your home screen, open the icon and do steps 1 to 3
+inside the icon as well. An installed icon on an iPhone can keep its own storage,
+so do not assume the save carries across.
 
 
-SENDING A FRIEND LINK SO NOBODY PASTES ANYTHING
-------------------------------------------------
-Every pair gets its own room code - four characters, picked on the page and
-drawn fresh when there is no link to follow. The code travels inside the friend
-link, so two pairs playing at the same time never meet. Yours stays on your
-phone, so reopening the icon rejoins the same game; tap "new code" beside the
-room code to start a different room and send a fresh link.
+THE ROOM CODE, AND SENDING A FRIEND LINK
+----------------------------------------
+Every pair gets its own room code: four characters, shown as ROOM on the co-op
+page, picked the first time the page is opened and kept on that phone. The code
+travels inside the friend link, so two pairs playing at the same time never end
+up in each other's game. Nobody ever types it.
 
-Tap SEND A LINK TO A FRIEND. The phone's share sheet opens with the link already
-filled in; pick an app and send it. Your friend taps the link and lands in your
-room, next to you. No address, no code to type, no field. The link carries the
-server address, the room code, and a "go" flag that skips the page entirely.
+ 1. Note the code on your own page - for example ROOM K7PQ. You do not have to
+    remember it: it is there so you can check you ended up in the right room.
+ 2. Tap SEND A LINK TO A FRIEND. On a phone with no share sheet the same button
+    says COPY A LINK FOR A FRIEND.
+ 3. Pick Messages, WhatsApp, AirDrop, whatever you use, and send it.
+ 4. Your friend taps the link and lands in your room: no address, no code, no
+    buttons, nothing to type. The link carries the server address, the room code
+    and a flag that skips the page.
+ 5. Their page shows the same four characters as yours. Same code means the same
+    game; a different code means the link was an old one - send a fresh one.
 
-If you back out of the share sheet, the same button copies the link instead, so
-you can paste it wherever you like. If a link ever stops working it is because
-the server address changed: tap "change", save the new one, and send a fresh
-link. Old links keep pointing at the old address.
+If you back out of the share sheet, the button has already copied the link, so
+you can paste it into any chat. If a link stops working it is because the server
+address changed: tap "change", save the new one, and send a fresh link. Old
+links keep pointing at the old address.
+
+Before a second pair of friends joins, tap NEW CODE beside the room code to draw
+a fresh one, then send them that link. Otherwise both groups share one room and
+you will all be in the same game.
 
 
 UNINSTALL
