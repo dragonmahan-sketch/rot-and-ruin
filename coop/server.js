@@ -24,6 +24,7 @@ const { RoomManager } = require('./room.js');
 const PORT = Number(process.env.PORT || 3000);
 const mgr = new RoomManager({ maxPlayers: 4 });
 const CLIENT = path.join(__dirname, 'client.html');
+const RENDER = path.join(__dirname, 'render.js');
 
 function getRoom(code, createIfMissing) {
   let room = mgr.get(code);
@@ -46,6 +47,15 @@ const server = http.createServer((req, res) => {
     fs.readFile(CLIENT, (err, buf) => {
       if (err) { res.writeHead(500); res.end('client.html missing'); return; }
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(buf);
+    });
+    return;
+  }
+
+  if (url.pathname === '/render.js') {
+    fs.readFile(RENDER, (err, buf) => {
+      if (err) { res.writeHead(500); res.end('render.js missing'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(buf);
     });
     return;

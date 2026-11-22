@@ -68,6 +68,12 @@ class Room {
     p.y = WORLD.h / 2 + Math.sin(a) * 40;
     this.S.players.push(p);
     this.inputs.set(playerId, { id: playerId, mx: 0, my: 0, fire: false });
+    // a room whose whole team died is frozen by the simulation; someone walking
+    // in restarts it instead of finding an empty world that never moves
+    if (this.S.mode !== 'playing') {
+      this.S.mode = 'playing';
+      this.S.spawnTimer = 0.4;
+    }
     return { ok: true, player: p, snapshot: this.snapshot() };
   }
 
@@ -78,7 +84,15 @@ class Room {
     // a corpse standing in the room or hold a slot for whoever joins next
     const i = this.S.players.findIndex(x => x.id === playerId);
     if (i >= 0) this.S.players.splice(i, 1);
+    if (this.S.players.length === 0) this.resetRun();
     return { players: this.S.players.length };
+  }
+
+  /** an empty room starts over, keeping its code and its seed */
+  resetRun() {
+    this.S = createState({ seed: this.seed, players: [] });
+    this.inputs.clear();
+    return this.S;
   }
 
   /** a client registers a delivery callback; it gets every snapshot from then on */
@@ -123,14 +137,16 @@ class Room {
       dark: q(S.darkness),
       mode: S.mode,
       players: S.players.map(p => ({
-        id: p.id, x: q(p.x), y: q(p.y), hp: Math.round(p.hp), alive: p.alive,
+        id: p.id, x: q(p.x), y: q(p.y), hp: Math.round(p.hp), mh: Math.round(p.maxHp), alive: p.alive,
         a: Math.round(p.angle * 100) / 100,
-        w: p.arsenal[p.cur].id, mag: p.arsenal[p.cur].mag, rl: p.reloading > 0
+        w: p.arsenal[p.cur].id, mag: p.arsenal[p.cur].mag, res: p.arsenal[p.cur].reserve,
+        med: p.medkits, rl: p.reloading > 0
       })),
       zombies: S.zombies.map(z => ({
-        id: z.id, x: q(z.x), y: q(z.y), ty: z.type, hp: Math.round(z.hp), b: !!z.boss
+        id: z.id, x: q(z.x), y: q(z.y), ty: z.type, hp: Math.round(z.hp), m: Math.round(z.maxHp),
+        a: Math.round(z.angle * 100) / 100, r: z.r, b: !!z.boss
       })),
-      bullets: S.bullets.map(b => ({ id: b.id, x: q(b.x), y: q(b.y), o: b.owner })),
+      bullets: S.bullets.map(b => ({ id: b.id, x: q(b.x), y: q(b.y), px: q(b.px), py: q(b.py), o: b.owner })),
       pickups: S.pickups.map(k => ({ id: k.id, x: q(k.x), y: q(k.y), ty: k.type })),
       bossCaches: S.bossCaches.map(c => ({ id: c.id, x: q(c.x), y: q(c.y), locked: c.locked }))
     };

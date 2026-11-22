@@ -3,29 +3,70 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>ROT &amp; RUIN — co-op (M1)</title>
+<title>ROT &amp; RUIN — co-op</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0a0c0a; overflow: hidden;
-    font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; color: #cfe3c6; }
+  html, body { margin: 0; height: 100%; background: #0b100a; overflow: hidden;
+    font: 700 11px/1.4 ui-monospace, Menlo, Consolas, monospace; color: #cfe3c6;
+    -webkit-user-select: none; user-select: none; }
   canvas { display: block; width: 100vw; height: 100vh; }
-  #hud { position: fixed; top: 10px; left: 12px; pointer-events: none;
-    text-shadow: 0 1px 2px #000; }
-  #hud b { color: #f0d78a; font-weight: 600; }
-  #peers { position: fixed; top: 10px; right: 12px; text-align: right; pointer-events: none; }
-  #hint { position: fixed; bottom: 10px; left: 12px; color: #7f9280; pointer-events: none; }
-  #state { color: #e0705a; }
+  #vig { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.55) 100%); }
+  .panel { position: fixed; background: rgba(6,10,6,0.55);
+    border: 1px solid rgba(143,212,106,0.14); border-radius: 6px; padding: 10px 12px;
+    pointer-events: none; }
+  #vitals { top: 18px; left: 14px; width: 284px; }
+  #vitals .label { color: #7f9a72; font-size: 10px; letter-spacing: 0.08em; }
+  #bar { height: 14px; margin-top: 6px; background: #2a1512; border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.5); overflow: hidden; }
+  #fill { height: 100%; width: 100%; background: #84c95f; transition: width 90ms linear; }
+  #vrow { display: flex; justify-content: space-between; margin-top: 6px; color: #cfd9c7; }
+  #score { top: 18px; right: 14px; width: 178px; text-align: right; }
+  #score .label { color: #6f8a63; font-size: 10px; letter-spacing: 0.08em; }
+  #wave { font-size: 32px; line-height: 1.05; color: #e8f3e0; }
+  #score .row { color: #9fb396; font-size: 11px; }
+  #weapon { left: 14px; bottom: 14px; min-width: 250px; }
+  #wname { color: #6f8a63; font-size: 10px; letter-spacing: 0.08em; }
+  #ammo { color: #f0d78a; font-size: 34px; line-height: 1.05; }
+  #ammo small { color: #8fa387; font-size: 15px; }
+  #peers { bottom: 14px; right: 14px; text-align: right; min-width: 120px; }
+  #peers div { color: #9fb396; }
+  #hint { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
+    color: #6f8a63; font-size: 10px; pointer-events: none; text-align: center;
+    white-space: nowrap; }
+  /* the panels own the bottom corners; on a narrow screen there is no room
+     between them for the key hints, so they step aside */
+  @media (max-width: 900px) { #hint { display: none; } }
+  #state { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: #e0705a; font-size: 13px; }
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
-<div id="hud">
-  <div>room <b id="room">—</b> &nbsp; you <b id="me">—</b></div>
-  <div>wave <b id="wave">1</b> &nbsp; kills <b id="kills">0</b> &nbsp; hp <b id="hp">100</b></div>
-  <div id="state"></div>
-</div>
-<div id="peers"></div>
-<div id="hint">WASD move · mouse aim · click to fire · R reload · F medkit · Shift sprint</div>
+<canvas id="game"></canvas>
+<div id="vig"></div>
 
+<div id="vitals" class="panel">
+  <div class="label">VITALS</div>
+  <div id="bar"><div id="fill"></div></div>
+  <div id="vrow"><span id="hpnum">100 / 100</span><span id="med">×1 [F] HEAL</span></div>
+</div>
+
+<div id="score" class="panel">
+  <div class="label">WAVE</div>
+  <div id="wave">1</div>
+  <div class="row" id="kills">KILLS 0</div>
+  <div class="row" id="time">TIME 0:00</div>
+</div>
+
+<div id="weapon" class="panel">
+  <div id="wname">PISTOL</div>
+  <div id="ammo">12 <small>/ 60</small></div>
+</div>
+
+<div id="peers" class="panel"></div>
+<div id="hint">WASD move · mouse aim · click fire · R reload · F medkit · Shift sprint</div>
+<div id="state"></div>
+
+<script src="/render.js"></script>
 <script>
 (function () {
   'use strict';
@@ -45,26 +86,53 @@
     history.replaceState(null, '', u);
   }
 
-  const cv = document.getElementById('c');
-  const ctx = cv.getContext('2d');
-  let DPR = Math.min(2, window.devicePixelRatio || 1);
-  let VW = 0, VH = 0;
+  const cv = document.getElementById('game');
+  const R = window.RTRender;
+  if (!R) { document.getElementById('state').textContent = 'render.js failed to load'; return; }
 
+  R.init(cv, { dprCap: 2 });
+  R.buildPatterns();
+
+  let VW = 0, VH = 0, DPR = 1;
   function resize() {
     DPR = Math.min(2, window.devicePixelRatio || 1);
     VW = cv.clientWidth; VH = cv.clientHeight;
     cv.width = Math.floor(VW * DPR);
     cv.height = Math.floor(VH * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    R.resize(VW, VH);
   }
   addEventListener('resize', resize);
   resize();
 
-  /* ---------------- state from the server ---------------- */
-  let prev = null;      // previous snapshot, for smoothing the drawing only
-  let next = null;      // newest snapshot
-  let prevAt = 0, nextAt = 0;
-  let events = 0, connected = false;
+  /* ---------------- world from the server ---------------- */
+  let prev = null, next = null, prevAt = 0, nextAt = 0, connected = false, events = 0;
+  const cam = { x: 0, y: 0, init: false };
+
+  function myPlayer() {
+    if (!next) return null;
+    return next.players.find(p => p.id === me) || null;
+  }
+
+  /* the client draws a blend between the last two snapshots; it never predicts,
+     it just avoids showing a slideshow at 20 snapshots a second */
+  function blended() {
+    if (!next) return null;
+    if (!prev) return next;
+    const t = Math.min(1, (performance.now() - nextAt) / 50);
+    const zb = new Map(prev.zombies.map(z => [z.id, z]));
+    const pb = new Map(prev.players.map(p => [p.id, p]));
+    return {
+      ...next,
+      zombies: next.zombies.map(z => {
+        const o = zb.get(z.id);
+        return o ? { ...z, x: o.x + (z.x - o.x) * t, y: o.y + (z.y - o.y) * t } : z;
+      }),
+      players: next.players.map(p => {
+        const o = pb.get(p.id);
+        return o ? { ...p, x: o.x + (p.x - o.x) * t, y: o.y + (p.y - o.y) * t } : p;
+      })
+    };
+  }
 
   let es = null;
   function connect() {
@@ -81,7 +149,6 @@
     };
   }
 
-  // no ?id= in the address: take the next free seat in the room
   (async function join() {
     if (!me) {
       try {
@@ -91,14 +158,12 @@
         me = 'p' + Math.floor(Math.random() * 900 + 10);
       }
     }
-    document.getElementById('room').textContent = room;
-    document.getElementById('me').textContent = me;
     connect();
   })();
 
   /* ---------------- input ---------------- */
   const keys = new Set();
-  const mouse = { x: VW / 2, y: VH / 2, down: false };
+  const mouse = { x: 0, y: 0, down: false };
 
   addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
@@ -107,18 +172,10 @@
   });
   addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
   addEventListener('blur', () => keys.clear());
-
   cv.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
   cv.addEventListener('mousedown', () => { mouse.down = true; });
   addEventListener('mouseup', () => { mouse.down = false; });
   cv.addEventListener('contextmenu', e => e.preventDefault());
-
-  function myPlayer() {
-    if (!next) return null;
-    return next.players.find(p => p.id === me) || null;
-  }
-
-  let cam = { x: 0, y: 0, init: false };
 
   function buildInput() {
     const p = myPlayer();
@@ -143,148 +200,98 @@
     };
   }
 
-  let lastSent = 0;
-  function sendInput() {
-    const body = JSON.stringify(buildInput());
-    // keep the request short; the server only cares about the latest input
-    fetch('/input', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true })
-      .catch(() => {});
+  setInterval(() => {
+    fetch('/input', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildInput()), keepalive: true
+    }).catch(() => {});
+  }, 33);
+
+  /* ---------------- HUD ---------------- */
+  const el = {
+    fill: document.getElementById('fill'), hpnum: document.getElementById('hpnum'),
+    med: document.getElementById('med'), wave: document.getElementById('wave'),
+    kills: document.getElementById('kills'), time: document.getElementById('time'),
+    wname: document.getElementById('wname'), ammo: document.getElementById('ammo'),
+    peers: document.getElementById('peers'), state: document.getElementById('state')
+  };
+  const WNAME = { pistol: 'PISTOL', shotgun: 'SHOTGUN', rifle: 'RIFLE', smg: 'SMG', smoke: 'SMOKE', frag: 'FRAG' };
+
+  function fmtTime(t) {
+    const m = Math.floor(t / 60), s = Math.floor(t % 60);
+    return m + ':' + String(s).padStart(2, '0');
   }
 
-  /* ---------------- drawing ---------------- */
-  const ZCOL = ['#5f7a45', '#816542', '#74494a'];
-
-  function lerp(a, b, t) { return a + (b - a) * t; }
-
-  function currentEntities() {
-    // draw a blend between the last two snapshots so movement is not a slide show
-    if (!next) return null;
-    const span = Math.max(1, nextAt - prevAt);
-    const t = Math.min(1, (performance.now() - nextAt) / 50);
-    const prevById = new Map();
-    if (prev) for (const z of prev.zombies) prevById.set(z.id, z);
-    const pPrev = new Map();
-    if (prev) for (const p of prev.players) pPrev.set(p.id, p);
-
-    return {
-      zombies: next.zombies.map(z => {
-        const o = prevById.get(z.id);
-        return o ? { ...z, x: lerp(o.x, z.x, t), y: lerp(o.y, z.y, t) } : z;
-      }),
-      players: next.players.map(p => {
-        const o = pPrev.get(p.id);
-        return o ? { ...p, x: lerp(o.x, p.x, t), y: lerp(o.y, p.y, t) } : p;
-      })
-    };
-  }
-
-  function draw() {
-    requestAnimationFrame(draw);
-
-    const nowP = myPlayer();
-    if (next) {
-      if (nowP) {
-        // camera: centre on you, clamped to nothing for now (the server sends no map)
-        if (!cam.init) { cam.x = nowP.x; cam.y = nowP.y; cam.init = true; }
-        cam.x = lerp(cam.x, nowP.x, 0.18);
-        cam.y = lerp(cam.y, nowP.y, 0.18);
-      }
+  function updateHud(snap) {
+    const p = myPlayer();
+    if (p) {
+      const frac = Math.max(0, Math.min(1, p.hp / (p.mh || 100)));
+      el.fill.style.width = (frac * 100).toFixed(1) + '%';
+      el.fill.style.background = frac > 0.55 ? '#84c95f' : frac > 0.28 ? '#d9b23f' : '#d94339';
+      el.hpnum.textContent = Math.ceil(p.hp) + ' / ' + (p.mh || 100);
+      el.med.textContent = '×' + p.med + ' [F] HEAL';
+      el.wname.textContent = WNAME[p.w] || p.w.toUpperCase();
+      el.ammo.innerHTML = String(p.mag).padStart(2, '0') + ' <small>/ ' + p.res + '</small>';
     }
+    el.wave.textContent = snap.wave;
+    el.wave.style.color = snap.wave % 5 === 0 ? '#e0705a' : '#e8f3e0';
+    el.kills.textContent = 'KILLS ' + snap.kills;
+    el.time.textContent = 'TIME ' + fmtTime(snap.t || 0);
+    el.peers.innerHTML = snap.players
+      .map(q => '<div>' + q.id + ' · ' + Math.round(q.hp) + 'hp' + (q.alive ? '' : ' · DOWN') + '</div>')
+      .join('') + '<div style="color:#6f8270">room ' + snap.room + ' · ' + snap.zombies.length + ' zombies</div>';
+    el.state.textContent = connected ? '' : 'disconnected';
+  }
 
-    ctx.fillStyle = '#0d1410';
-    ctx.fillRect(0, 0, VW, VH);
+  /* ---------------- frame ---------------- */
+  // small diagnostic surface, handy when a host or a proxy misbehaves
+  const debug = { events: 0, frames: 0, draws: 0, lastError: null, lastTick: null };
+  window.__coop = debug;
 
-    const ox = VW / 2 - cam.x;
-    const oy = VH / 2 - cam.y;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    debug.frames++;
+    try {
+      frameBody(now);
+    } catch (e) {
+      debug.lastError = String(e && e.stack || e);
+      el.state.textContent = 'render error: ' + e.message;
+    }
+  }
 
-    // ground grid, so movement is readable
-    const g = 200;
-    ctx.strokeStyle = 'rgba(120,160,110,0.10)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const x0 = Math.floor((cam.x - VW / 2) / g) * g, x1 = cam.x + VW / 2;
-    const y0 = Math.floor((cam.y - VH / 2) / g) * g, y1 = cam.y + VH / 2;
-    for (let x = x0; x <= x1; x += g) { ctx.moveTo(x + ox, 0); ctx.lineTo(x + ox, VH); }
-    for (let y = y0; y <= y1; y += g) { ctx.moveTo(0, y + oy); ctx.lineTo(VW, y + oy); }
-    ctx.stroke();
-
-    const ents = currentEntities();
-    if (!ents) {
-      ctx.fillStyle = '#7f9280';
-      ctx.fillText(connected ? 'waiting for the first snapshot…' : 'connecting…', 20, VH / 2);
+  function frameBody(now) {
+    const snap = blended();
+    if (!snap) {
+      el.state.textContent = connected ? 'waiting for the first snapshot…' : 'connecting…';
       return;
     }
-
-    // pickups
-    for (const k of next.pickups) {
-      ctx.fillStyle = k.ty === 'medkit' ? '#9fe08a' : '#e2c766';
-      ctx.fillRect(k.x + ox - 5, k.y + oy - 5, 10, 10);
+    debug.draws++;
+    debug.lastTick = snap.tick;
+    const p = myPlayer();
+    if (p) {
+      if (!cam.init) { cam.x = p.x; cam.y = p.y; cam.init = true; }
+      const k = 0.22;
+      cam.x += (p.x - cam.x) * k;
+      cam.y += (p.y - cam.y) * k;
     }
+    R.draw(snap, me, cam, now / 1000);
 
-    // boss caches
-    for (const b of next.bossCaches) {
-      ctx.strokeStyle = b.locked ? '#e0705a' : '#f0d78a';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(b.x + ox - 14, b.y + oy - 14, 28, 28);
-    }
+    // crosshair
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.strokeStyle = 'rgba(232,243,224,0.75)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(mouse.x, mouse.y, 7, 0, Math.PI * 2);
+    ctx.moveTo(mouse.x - 12, mouse.y); ctx.lineTo(mouse.x - 4, mouse.y);
+    ctx.moveTo(mouse.x + 4, mouse.y); ctx.lineTo(mouse.x + 12, mouse.y);
+    ctx.moveTo(mouse.x, mouse.y - 12); ctx.lineTo(mouse.x, mouse.y - 4);
+    ctx.moveTo(mouse.x, mouse.y + 4); ctx.lineTo(mouse.x, mouse.y + 12);
+    ctx.stroke();
 
-    // bullets
-    ctx.fillStyle = '#ffe08a';
-    for (const b of next.bullets) ctx.fillRect(b.x + ox - 2, b.y + oy - 2, 4, 4);
-
-    // zombies
-    for (const z of ents.zombies) {
-      const r = z.b ? 26 : (z.ty === 2 ? 15 : z.ty === 1 ? 8 : 10);
-      ctx.beginPath();
-      ctx.arc(z.x + ox, z.y + oy, r, 0, Math.PI * 2);
-      ctx.fillStyle = z.b ? '#8d4a4a' : ZCOL[z.ty] || ZCOL[0];
-      ctx.fill();
-      if (z.hp < 40) {
-        ctx.strokeStyle = 'rgba(224,112,90,0.6)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-    }
-
-    // survivors
-    for (const p of ents.players) {
-      const x = p.x + ox, y = p.y + oy;
-      ctx.beginPath();
-      ctx.arc(x, y, 13, 0, Math.PI * 2);
-      ctx.fillStyle = p.alive ? (p.id === me ? '#8ad9e8' : '#cfe3c6') : '#4a4a4a';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      // facing
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + Math.cos(p.a) * 22, y + Math.sin(p.a) * 22);
-      ctx.strokeStyle = p.id === me ? '#8ad9e8' : '#cfe3c6';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      // name tag
-      ctx.fillStyle = p.id === me ? '#8ad9e8' : '#9fb69f';
-      ctx.font = '11px ui-monospace, monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(p.id, x, y - 20);
-      ctx.textAlign = 'left';
-    }
-
-    // hud numbers
-    const mine = nowP || {};
-    document.getElementById('wave').textContent = next.wave;
-    document.getElementById('kills').textContent = next.kills;
-    document.getElementById('hp').textContent = mine.hp !== undefined ? mine.hp : '—';
-    document.getElementById('state').textContent = connected ? '' : 'disconnected';
-    document.getElementById('peers').innerHTML =
-      next.players.map(p => '<div>' + p.id + ' · ' + p.hp + 'hp' + (p.alive ? '' : ' · down') + '</div>').join('') +
-      '<div style="color:#6f8270">' + next.zombies.length + ' zombies · tick ' + next.tick + '</div>';
+    updateHud(snap);
   }
-
-  // 30 Hz input
-  setInterval(sendInput, 33);
-  draw();
+  requestAnimationFrame(frame);
 })();
 </script>
 </body>
