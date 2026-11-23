@@ -934,6 +934,7 @@ function resetGame(){
   G.wave = 1; G.waveTimer = WAVE_DUR; G.kills = 0; G.time = 0;
   G.spawnTimer = 0.8; G.shake = 0; G.damageFlash = 0; G.hint = 10;
   G.darkness = 0; G.flashlight = true;
+  weatherReset();
   G.cam.x = clamp(G.player.x - VW / 2, 0, Math.max(0, WORLD.w - VW));
   G.cam.y = clamp(G.player.y - VH / 2, 0, Math.max(0, WORLD.h - VH));
   G.mode = 'playing';
@@ -2579,6 +2580,184 @@ function drawNightGlow(camX, camY){
 /* ============================================================
    render
    ============================================================ */
+/* ============================================================
+   weather - the sky over one run
+   ============================================================
+   Mood only. Nothing here reaches damage, sight radius, spawning or ammo:
+   it drifts between clear, rain, fog and storm on its own clock, fades over
+   a few seconds so a change never snaps, and thins with the graphics
+   setting, because streaks of rain are the first thing an old phone should
+   lose. Clear spells are the most likely state, so a run still opens calm. */
+const WEATHER_KINDS = [
+  { id: 'clear', weight: 32, min: 60, max: 120 },
+  { id: 'rain',  weight: 30, min: 45, max: 95 },
+  { id: 'fog',   weight: 20, min: 40, max: 80 },
+  { id: 'storm', weight: 18, min: 35, max: 70 }
+];
+const WEATHER = {
+  kind: 'clear', level: 0, phase: 'in', hold: 24,
+  wind: 0.3, flash: 0, nextFlash: 9, drops: [], puddles: null
+};
+
+function weatherReset(){
+  WEATHER.kind = 'clear';
+  WEATHER.level = 0;
+  WEATHER.phase = 'in';
+  WEATHER.hold = 20 + Math.random() * 30;
+  WEATHER.wind = (Math.random() * 2 - 1) * 0.5;
+  WEATHER.flash = 0;
+  WEATHER.nextFlash = 7 + Math.random() * 8;
+  WEATHER.drops.length = 0;
+  if(!WEATHER.puddles) weatherMakePuddles();
+}
+
+/* wet ground: a fixed scatter of shallow sheens, so the map is the same wet
+   map every time you walk back through it */
+function weatherMakePuddles(){
+  WEATHER.puddles = [];
+  for(let i = 0; i < 90; i++){
+    WEATHER.puddles.push({
+      x: 40 + Math.random() * (WORLD.w - 80),
+      y: 40 + Math.random() * (WORLD.h - 80),
+      rx: 26 + Math.random() * 70,
+      ry: 9 + Math.random() * 22,
+      a: 0.45 + Math.random() * 0.55
+    });
+  }
+}
+
+function weatherPick(){
+  let total = 0;
+  for(const k of WEATHER_KINDS) if(k.id !== WEATHER.kind) total += k.weight;
+  let r = Math.random() * total;
+  for(const k of WEATHER_KINDS){
+    if(k.id === WEATHER.kind) continue;
+    r -= k.weight;
+    if(r <= 0) return k;
+  }
+  return WEATHER_KINDS[0];
+}
+
+function weatherSwap(){
+  const k = weatherPick();
+  WEATHER.kind = k.id;
+  WEATHER.hold = k.min + Math.random() * (k.max - k.min);
+  WEATHER.phase = 'in';
+  if(k.id === 'clear') WEATHER.level = 0;
+  if(k.id === 'storm') WEATHER.wind = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.45);
+  else if(k.id === 'rain') WEATHER.wind = (Math.random() * 2 - 1) * 0.55;
+  else WEATHER.wind = 0;
+}
+
+function weatherNewDrop(){
+  return {
+    x: Math.random() * (VW + 200) - 100,
+    y: Math.random() * VH,
+    len: 9 + Math.random() * 17,
+    spd: 600 + Math.random() * 520
+  };
+}
+
+function weatherUpdate(dt){
+  if(!WEATHER.puddles) weatherMakePuddles();
+
+  if(WEATHER.phase === 'in'){
+    WEATHER.level = Math.min(1, WEATHER.level + dt / 6);
+    WEATHER.hold -= dt;
+    if(WEATHER.hold <= 0){
+      if(WEATHER.kind === 'clear') weatherSwap();   // nothing to fade out of
+      else WEATHER.phase = 'out';
+    }
+  } else {
+    WEATHER.level = Math.max(0, WEATHER.level - dt / 4);
+    if(WEATHER.level <= 0) weatherSwap();
+  }
+
+  const raining = (WEATHER.kind === 'rain' || WEATHER.kind === 'storm') && WEATHER.level > 0.02;
+  const quality = gfxNow().partChance;
+  const want = raining
+    ? Math.min(320, Math.round((VW + VH) * 0.055 * quality * (WEATHER.kind === 'storm' ? 1.6 : 1)))
+    : 0;
+  while(WEATHER.drops.length < want) WEATHER.drops.push(weatherNewDrop());
+  if(WEATHER.drops.length > want) WEATHER.drops.length = want;
+
+  if(raining){
+    for(const d of WEATHER.drops){
+      d.y += d.spd * dt;
+      d.x += WEATHER.wind * d.spd * dt * 0.5;
+      if(d.y > VH + d.len){
+        d.y = -d.len - Math.random() * 80;
+        d.x = Math.random() * (VW + 200) - 100;
+      }
+      if(d.x < -110) d.x += VW + 220;
+      else if(d.x > VW + 110) d.x -= VW + 220;
+    }
+  }
+
+  if(WEATHER.kind === 'storm' && WEATHER.level > 0.5){
+    WEATHER.nextFlash -= dt;
+    if(WEATHER.nextFlash <= 0){
+      WEATHER.flash = 1;
+      WEATHER.nextFlash = 6 + Math.random() * 12;
+    }
+  }
+  if(WEATHER.flash > 0) WEATHER.flash = Math.max(0, WEATHER.flash - dt * 2.8);
+}
+
+/* the ground sheen, drawn inside the world transform so it slides with the map */
+function weatherPuddles(v){
+  const wet = (WEATHER.kind === 'rain' || WEATHER.kind === 'storm') && WEATHER.level > 0.05;
+  if(!wet || !WEATHER.puddles) return;
+  const a = WEATHER.level * 0.17;
+  for(const p of WEATHER.puddles){
+    if(p.x + p.rx < v.x0 || p.x - p.rx > v.x1 || p.y + p.ry < v.y0 || p.y - p.ry > v.y1) continue;
+    ctx.fillStyle = 'rgba(122,158,176,' + (a * p.a).toFixed(3) + ')';
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, TAU);
+    ctx.fill();
+  }
+}
+
+/* haze, rain and lightning, drawn over the world but under the HUD */
+function weatherScreen(){
+  const lv = WEATHER.level;
+  if(lv > 0.01){
+    if(WEATHER.kind === 'fog' || WEATHER.kind === 'storm' || WEATHER.kind === 'rain'){
+      const heavy = WEATHER.kind === 'fog' ? 0.32 : WEATHER.kind === 'storm' ? 0.17 : 0.08;
+      const mx = VW / 2, my = VH / 2;
+      const g = ctx.createRadialGradient(mx, my, Math.min(VW, VH) * 0.2, mx, my, Math.max(VW, VH) * 0.72);
+      g.addColorStop(0, 'rgba(148,164,161,0)');
+      g.addColorStop(1, 'rgba(148,164,161,' + (heavy * lv).toFixed(3) + ')');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, VW, VH);
+      ctx.fillStyle = 'rgba(148,164,161,' + (heavy * lv * 0.3).toFixed(3) + ')';
+      ctx.fillRect(0, 0, VW, VH);
+    }
+    if(WEATHER.drops.length){
+      const base = (WEATHER.kind === 'storm' ? 0.30 : 0.22) * lv;
+      ctx.save();
+      ctx.lineCap = 'round';
+      for(let b = 0; b < 3; b++){
+        ctx.beginPath();
+        for(let i = b; i < WEATHER.drops.length; i += 3){
+          const d = WEATHER.drops[i];
+          const slant = WEATHER.wind * d.len * 0.5;
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x - slant, d.y + d.len);
+        }
+        ctx.strokeStyle = 'rgba(198,216,226,' + (base * (0.6 + b * 0.2)).toFixed(3) + ')';
+        ctx.lineWidth = b === 2 ? 1.4 : 1;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  if(WEATHER.flash > 0.01){
+    ctx.fillStyle = 'rgba(228,238,246,' + (WEATHER.flash * 0.3).toFixed(3) + ')';
+    ctx.fillRect(0, 0, VW, VH);
+  }
+}
+
 function render(){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = '#0b100a';
@@ -2593,6 +2772,7 @@ function render(){
   ctx.save();
   ctx.translate(-camX, -camY);
   drawGround(v);
+  weatherPuddles(v);
   drawDecals(v);
   drawCrates(v);
   drawWeaponCaches(v);
@@ -2615,6 +2795,8 @@ function render(){
       drawNightGlow(camX, camY);
     }
   }
+
+  weatherScreen();
 
   drawHUD();
   drawToasts();
@@ -3304,6 +3486,7 @@ function frame(now){
   last = now;
   watchQuality(raw);
   clock += raw;
+  if(G.mode === 'playing' || G.mode === 'menu') weatherUpdate(raw);
   if(G.mode === 'playing'){
     acc += raw;
     let steps = 0;
