@@ -1,0 +1,55 @@
+ROT & RUIN — LICENCE
+====================
+Copyright (c) 2026 dragonmahan-sketch. All rights reserved.
+
+This game, its source files, artwork, audio, icons and text are not public
+domain and are not open source. This file says what you may do with them
+without asking first.
+
+
+YOU MAY
+-------
+  - Play the game, at home or anywhere else, for as long as you like, free.
+  - Add it to a phone or computer home screen and keep that copy for yourself.
+  - Share links to the official copies:
+        https://rot-ruin-wbadxv.freebuff.site
+        https://dragonmahan-sketch.github.io/rot-and-ruin/
+  - Pass the download to a friend exactly as you received it, unmodified, as
+    long as you charge nothing for it.
+  - Record, stream, screenshot and monetise video of yourself playing it,
+    including on YouTube, Twitch and similar, and use the name ROT & RUIN and
+    frames from the game to describe that video.
+  - Quote short excerpts of the source for review, teaching or commentary.
+
+
+YOU MAY NOT
+-----------
+  - Redistribute modified copies, or publish the game's source under another
+    name or as part of another product.
+  - Sell the game, the files, or access to them; put them behind a paywall or
+    an ad-gated download; or bundle them into something you sell.
+  - Use the name ROT & RUIN, its logo or its artwork for a different game or
+    product, or in any way that suggests this project endorses it.
+  - Re-upload the files to an app store, a game store, a package registry or a
+    web host you control as a copy of this game.
+  - Claim authorship of the game or of its art.
+
+
+THE CO-OP ROOM SERVER
+---------------------
+server.js, room.js and sim.js in coop/ are included so you can run a room for
+yourself and your friends. Running one privately is fine. Hosting it publicly,
+with or without payment, is not.
+
+
+NO WARRANTY
+-----------
+The game is provided as is, with no warranty of any kind. Play it, do not rely
+on it, and do not blame the author if it loses a save or a high score.
+
+
+ANYTHING ELSE
+-------------
+This is a plain-language licence written for this project, not legal advice.
+For anything the paragraphs above do not cover, ask first:
+dragonmahan@gmail.com
