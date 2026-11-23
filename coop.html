@@ -78,10 +78,10 @@
     <h1>CO-<span>OP</span> ROOM</h1>
     <p class="sub">Two survivors, one world. Send a friend the link below and you both end up in the same room.</p>
     <div class="setter" id="setter">
-      <label for="host">Server address</label>
+      <label for="host">Room server address</label>
       <input id="host" type="url" spellcheck="false" autocapitalize="off" autocorrect="off"
              inputmode="url" enterkeyhint="go" autocomplete="off"
-             placeholder="your-service.onrender.com">
+             placeholder="https://something.onrender.com">
       <button id="save">Save address</button>
       <p class="hint" id="hint">Paste it once. It stays on this phone.</p>
     </div>
@@ -187,14 +187,15 @@
       play.textContent = 'Add the server address above';
       play.setAttribute('aria-disabled', 'true');
       where.hidden = true;
-      hint.textContent = 'The room lives on a server. Paste its address, or open the link the host sent you.';
+      hint.textContent = 'Co-op needs a room server. Paste the address the host gave you,
+        or just tap the link they sent.';
       return;
     }
     play.href = host + '/?room=' + ROOM;
     play.classList.remove('off');
     play.removeAttribute('aria-disabled');
     play.textContent = 'Enter the room';
-    hint.textContent = 'Paste it once. It stays on this phone.';
+    hint.textContent = 'Saved on this phone. Tap change to use another address.';
     where.hidden = false;
     where.innerHTML = 'Room server: <code>' + host.replace(/^https?:\/\//, '') + '</code>';
   }
