@@ -202,7 +202,7 @@
     <div class="foot" id="installNote2" style="display:none;white-space:pre-line;line-height:1.6;text-align:left;margin-top:8px"></div>
     <div class="foot" id="offlineLine"></div>
     <div class="foot" id="footNote">Best on desktop with a mouse and keyboard</div>
-    <div class="build">v1.0.0</div>
+    <div class="build">v1.0.1</div>
   </div>
 
   <div id="installWrap" hidden style="position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 14px calc(12px + env(safe-area-inset-bottom));text-align:center;background:linear-gradient(180deg,rgba(5,8,5,0),rgba(5,8,5,.94) 45%)">
@@ -223,7 +223,7 @@
     <div class="optwrap"><button id="sndBtn2" class="ghost">Sound on</button></div>
     <div class="volrow"><span>Volume</span><input id="volRange2" type="range" min="0" max="100" step="5" value="100" aria-label="Game volume"><span id="volVal2">100%</span></div>
     <div class="optwrap"><button id="quitBtn" class="ghost" hidden>Quit game</button></div>
-    <div class="build">v1.0.0</div>
+    <div class="build">v1.0.1</div>
   </div>
 </div>
 
@@ -238,7 +238,7 @@
     </div>
     <button id="retryBtn">Try again</button>
     <div class="foot">Weapons, ammo and medkits are out there. Go get them.</div>
-    <div class="build">v1.0.0</div>
+    <div class="build">v1.0.1</div>
   </div>
 </div>
 
@@ -3554,7 +3554,7 @@ requestAnimationFrame(frameSafe);
 
 /* version stamp: the one number that has to match desktop/package.json */
 (() => {
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.1';
   document.querySelectorAll('.build').forEach((n) => { n.textContent = 'v' + VERSION; });
 })();
 })();

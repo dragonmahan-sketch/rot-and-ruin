@@ -1,6 +1,6 @@
 /* ROT & RUIN service worker — makes the game installable and playable offline.
    Bump CACHE when the artwork or icon files change. */
-const CACHE = 'rotruin-v6';
+const CACHE = 'rotruin-v7';
 
 const SHELL = [
   './',
