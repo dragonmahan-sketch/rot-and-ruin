@@ -2599,6 +2599,10 @@ const WEATHER = {
   wind: 0.3, flash: 0, nextFlash: 9, drops: [], puddles: null
 };
 
+/* a handle for looking at the sky from the browser console, the same way the
+   co-op client exposes its diagnostics: typing __wx.kind = 'fog' shows fog */
+window.__wx = WEATHER;
+
 function weatherReset(){
   WEATHER.kind = 'clear';
   WEATHER.level = 0;
@@ -2676,7 +2680,7 @@ function weatherUpdate(dt){
   const raining = (WEATHER.kind === 'rain' || WEATHER.kind === 'storm') && WEATHER.level > 0.02;
   const quality = gfxNow().partChance;
   const want = raining
-    ? Math.min(320, Math.round((VW + VH) * 0.055 * quality * (WEATHER.kind === 'storm' ? 1.6 : 1)))
+    ? Math.min(400, Math.round((VW * VH) / 4200 * quality * (WEATHER.kind === 'storm' ? 1.5 : 1)))
     : 0;
   while(WEATHER.drops.length < want) WEATHER.drops.push(weatherNewDrop());
   if(WEATHER.drops.length > want) WEATHER.drops.length = want;
@@ -2704,18 +2708,37 @@ function weatherUpdate(dt){
   if(WEATHER.flash > 0) WEATHER.flash = Math.max(0, WEATHER.flash - dt * 2.8);
 }
 
-/* the ground sheen, drawn inside the world transform so it slides with the map */
+/* the ground sheen, drawn inside the world transform so it slides with the map.
+   A cached soft sprite is stretched to each puddle: a flat ellipse reads as a
+   grey disc lying on the map, whereas an edge that fades to nothing reads as
+   water, and stretching one sprite costs far less than a gradient per puddle. */
+let weatherSheen = null;
+function weatherSheenSprite(){
+  if(weatherSheen) return weatherSheen;
+  weatherSheen = document.createElement('canvas');
+  weatherSheen.width = 128; weatherSheen.height = 128;
+  const g = weatherSheen.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 6, 64, 64, 62);
+  grad.addColorStop(0, 'rgba(178,208,220,0.75)');
+  grad.addColorStop(0.5, 'rgba(126,166,184,0.34)');
+  grad.addColorStop(1, 'rgba(110,150,170,0)');
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(64, 64, 62, 0, TAU); g.fill();
+  return weatherSheen;
+}
+
 function weatherPuddles(v){
   const wet = (WEATHER.kind === 'rain' || WEATHER.kind === 'storm') && WEATHER.level > 0.05;
   if(!wet || !WEATHER.puddles) return;
-  const a = WEATHER.level * 0.17;
+  const sprite = weatherSheenSprite();
+  const base = WEATHER.level * 0.42;
+  ctx.save();
   for(const p of WEATHER.puddles){
     if(p.x + p.rx < v.x0 || p.x - p.rx > v.x1 || p.y + p.ry < v.y0 || p.y - p.ry > v.y1) continue;
-    ctx.fillStyle = 'rgba(122,158,176,' + (a * p.a).toFixed(3) + ')';
-    ctx.beginPath();
-    ctx.ellipse(p.x, p.y, p.rx, p.ry, 0, 0, TAU);
-    ctx.fill();
+    ctx.globalAlpha = base * p.a;
+    ctx.drawImage(sprite, p.x - p.rx, p.y - p.ry, p.rx * 2, p.ry * 2);
   }
+  ctx.restore();
 }
 
 /* haze, rain and lightning, drawn over the world but under the HUD */
@@ -2723,18 +2746,21 @@ function weatherScreen(){
   const lv = WEATHER.level;
   if(lv > 0.01){
     if(WEATHER.kind === 'fog' || WEATHER.kind === 'storm' || WEATHER.kind === 'rain'){
-      const heavy = WEATHER.kind === 'fog' ? 0.32 : WEATHER.kind === 'storm' ? 0.17 : 0.08;
+      /* at night the same wash would glow against the dark, so it dims with
+         the daylight instead of being the brightest thing on screen */
+      const daylit = 1 - (G.darkness || 0) * 0.5;
+      const heavy = (WEATHER.kind === 'fog' ? 0.4 : WEATHER.kind === 'storm' ? 0.18 : 0.1) * daylit;
       const mx = VW / 2, my = VH / 2;
       const g = ctx.createRadialGradient(mx, my, Math.min(VW, VH) * 0.2, mx, my, Math.max(VW, VH) * 0.72);
-      g.addColorStop(0, 'rgba(148,164,161,0)');
-      g.addColorStop(1, 'rgba(148,164,161,' + (heavy * lv).toFixed(3) + ')');
+      g.addColorStop(0, 'rgba(158,174,172,0)');
+      g.addColorStop(1, 'rgba(158,174,172,' + (heavy * lv).toFixed(3) + ')');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, VW, VH);
-      ctx.fillStyle = 'rgba(148,164,161,' + (heavy * lv * 0.3).toFixed(3) + ')';
+      ctx.fillStyle = 'rgba(158,174,172,' + (heavy * lv * 0.34).toFixed(3) + ')';
       ctx.fillRect(0, 0, VW, VH);
     }
     if(WEATHER.drops.length){
-      const base = (WEATHER.kind === 'storm' ? 0.30 : 0.22) * lv;
+      const base = (WEATHER.kind === 'storm' ? 0.36 : 0.30) * lv;
       ctx.save();
       ctx.lineCap = 'round';
       for(let b = 0; b < 3; b++){
