@@ -58,6 +58,18 @@
     font: inherit; font-size: 10px; letter-spacing: 0.16em; padding: 9px 12px;
     text-transform: uppercase; cursor: pointer; }
   #setup button.main { border-color: #4c7a3d; background: linear-gradient(180deg,#3d5f31,#2a4222); color: #eaf5e2; }
+  /* ---- phone controls ---- */
+  canvas { touch-action: none; }
+  #touchBtns { position: fixed; right: 14px; bottom: 100px; display: none;
+    flex-direction: column; gap: 10px; z-index: 12; }
+  body.touch #touchBtns { display: flex; }
+  body.touch #peers { bottom: 100px; }
+  #touchBtns button { width: 62px; height: 62px; border-radius: 50%;
+    background: rgba(6,10,6,0.55); border: 1px solid rgba(143,212,106,0.32);
+    color: #cfe3c6; font: inherit; font-size: 10px; letter-spacing: .06em;
+    text-transform: uppercase; touch-action: none; cursor: pointer; }
+  #touchBtns button.held { background: rgba(76,122,61,0.85); color: #eaf5e2; }
+
   #setup button:hover { color: #eaf5e2; }
 </style>
 </head>
@@ -100,6 +112,12 @@
 </div>
 <div id="hint">WASD move · mouse aim · click fire · R reload · F medkit · Shift sprint</div>
 <div id="state"></div>
+
+<div id="touchBtns">
+  <button id="btnRun" type="button">run</button>
+  <button id="btnReload" type="button">reload</button>
+  <button id="btnHeal" type="button">heal</button>
+</div>
 
 <script src="./render.js"></script>
 <script>
@@ -244,6 +262,100 @@
   addEventListener('mouseup', () => { mouse.down = false; });
   cv.addEventListener('contextmenu', e => e.preventDefault());
 
+  /* ---------------- phone controls ---------------- */
+  let touchUI = false;
+  try {
+    touchUI = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window);
+  } catch (e) {}
+  if (touchUI) document.body.classList.add('touch');
+
+  const touch = {
+    move: { active: false, id: null, ox: 0, oy: 0, nx: 0, ny: 0 },
+    aim:  { active: false, id: null, ox: 0, oy: 0, nx: 0, ny: 0 },
+    run: false, reload: false, heal: false
+  };
+
+  function stickRadius() { return Math.max(44, Math.min(84, Math.min(VW, VH) * 0.13)); }
+
+  function updateStick(s, x, y) {
+    const R = stickRadius();
+    let dx = x - s.ox, dy = y - s.oy;
+    const d = Math.hypot(dx, dy);
+    if (d > R) {
+      s.ox += dx * (1 - R / d);
+      s.oy += dy * (1 - R / d);
+      dx = x - s.ox; dy = y - s.oy;
+    }
+    s.nx = dx / R; s.ny = dy / R;
+  }
+
+  function releaseSticks() {
+    touch.move.active = false; touch.move.id = null; touch.move.nx = 0; touch.move.ny = 0;
+    touch.aim.active = false; touch.aim.id = null; touch.aim.nx = 0; touch.aim.ny = 0;
+  }
+
+  /* the three action buttons are real buttons, so a thumb cannot miss them
+     inside a canvas viewport that may be 390 pixels wide */
+  [['btnRun', 'run'], ['btnReload', 'reload'], ['btnHeal', 'heal']].forEach(([id, key]) => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    const down = e => { e.preventDefault(); touch[key] = true; b.classList.add('held'); };
+    const up = e => { e.preventDefault(); touch[key] = false; b.classList.remove('held'); };
+    b.addEventListener('touchstart', down, { passive: false });
+    b.addEventListener('touchend', up, { passive: false });
+    b.addEventListener('touchcancel', up, { passive: false });
+    b.addEventListener('mousedown', down);
+    b.addEventListener('mouseup', up);
+    b.addEventListener('mouseleave', up);
+  });
+
+  /* left half of the screen is the move stick, right half aims and fires */
+  cv.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (!touchUI) { touchUI = true; document.body.classList.add('touch'); }
+    for (const t of e.changedTouches) {
+      const x = t.clientX, y = t.clientY;
+      if (x < VW / 2) {
+        if (!touch.move.active) {
+          touch.move.active = true; touch.move.id = t.identifier;
+          touch.move.ox = x; touch.move.oy = y; touch.move.nx = 0; touch.move.ny = 0;
+        }
+      } else if (!touch.aim.active) {
+        touch.aim.active = true; touch.aim.id = t.identifier;
+        touch.aim.ox = x; touch.aim.oy = y; touch.aim.nx = 0; touch.aim.ny = 0;
+      }
+    }
+  }, { passive: false });
+
+  cv.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (touch.move.active && t.identifier === touch.move.id) updateStick(touch.move, t.clientX, t.clientY);
+      else if (touch.aim.active && t.identifier === touch.aim.id) updateStick(touch.aim, t.clientX, t.clientY);
+    }
+  }, { passive: false });
+
+  function endTouches(e) {
+    for (const t of e.changedTouches) {
+      if (touch.move.active && t.identifier === touch.move.id) { touch.move.active = false; touch.move.id = null; touch.move.nx = 0; touch.move.ny = 0; }
+      if (touch.aim.active && t.identifier === touch.aim.id) { touch.aim.active = false; touch.aim.id = null; touch.aim.nx = 0; touch.aim.ny = 0; }
+    }
+  }
+  cv.addEventListener('touchend', e => { e.preventDefault(); endTouches(e); }, { passive: false });
+  cv.addEventListener('touchcancel', endTouches, { passive: false });
+  addEventListener('orientationchange', () => setTimeout(() => { releaseSticks(); resize(); }, 300));
+
+  if (touchUI) {
+    const h = document.getElementById('hint');
+    if (h) {
+      h.textContent = 'left thumb moves · right thumb aims and fires';
+      h.style.display = 'block';
+      h.style.bottom = 'auto';
+      h.style.top = '46px';
+      setTimeout(() => { h.style.display = ''; }, 6000);
+    }
+  }
+
   function buildInput() {
     const p = myPlayer();
     let mx = 0, my = 0;
@@ -251,19 +363,26 @@
     if (keys.has('s') || keys.has('arrowdown')) my++;
     if (keys.has('a') || keys.has('arrowleft')) mx--;
     if (keys.has('d') || keys.has('arrowright')) mx++;
+    /* the left thumb adds to the keyboard, so both work at the same time */
+    const mvMag = Math.hypot(touch.move.nx, touch.move.ny);
+    if (touch.move.active && mvMag > 0.16) { mx += touch.move.nx; my += touch.move.ny; }
+
     const l = Math.hypot(mx, my);
     if (l > 0) { mx /= l; my /= l; }
 
+    /* aim with the right thumb when it is dragging, otherwise with the mouse */
+    const aimMag = Math.hypot(touch.aim.nx, touch.aim.ny);
     let aim;
-    if (p) aim = Math.atan2(mouse.y - (VH / 2 + (p.y - cam.y)), mouse.x - (VW / 2 + (p.x - cam.x)));
+    if (touch.aim.active && aimMag > 0.14) aim = Math.atan2(touch.aim.ny, touch.aim.nx);
+    else if (p) aim = Math.atan2(mouse.y - (VH / 2 + (p.y - cam.y)), mouse.x - (VW / 2 + (p.x - cam.x)));
 
     return {
       room, id: me, mx, my,
       aim: Number.isFinite(aim) ? aim : undefined,
-      fire: mouse.down,
-      reload: keys.has('r'),
-      medkit: keys.has('f'),
-      sprint: keys.has('shift')
+      fire: mouse.down || (touch.aim.active && aimMag > 0.34),
+      reload: keys.has('r') || touch.reload,
+      medkit: keys.has('f') || touch.heal,
+      sprint: keys.has('shift') || touch.run || (touch.move.active && mvMag > 0.94)
     };
   }
 
@@ -287,6 +406,24 @@
   function fmtTime(t) {
     const m = Math.floor(t / 60), s = Math.floor(t % 60);
     return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function drawStick(ctx, s, color) {
+    if (!s.active) return;
+    const R = stickRadius();
+    ctx.save();
+    ctx.fillStyle = 'rgba(6,10,6,0.26)';
+    ctx.beginPath(); ctx.arc(s.ox, s.oy, R, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(210,235,200,0.22)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(s.ox, s.oy, R, 0, Math.PI * 2); ctx.stroke();
+    const tx = s.ox + s.nx * R, ty = s.oy + s.ny * R;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(tx, ty, R * 0.34, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(tx, ty, R * 0.34, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
   }
 
   function updateHud(snap) {
@@ -343,9 +480,15 @@
     }
     R.draw(snap, me, cam, now / 1000);
 
-    // crosshair
     const ctx = cv.getContext('2d');
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    // the two thumbs, drawn where they actually are
+    drawStick(ctx, touch.move, 'rgba(143,212,106,0.8)');
+    drawStick(ctx, touch.aim, 'rgba(240,215,138,0.85)');
+
+    // crosshair, mouse only: a phone has no pointer to draw it at
+    if (touchUI) { updateHud(snap); return; }
     ctx.strokeStyle = 'rgba(232,243,224,0.75)';
     ctx.lineWidth = 1.4;
     ctx.beginPath();

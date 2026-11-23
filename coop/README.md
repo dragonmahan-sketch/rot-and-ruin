@@ -16,5 +16,10 @@ Send a friend the same address with the same room code.
 
 Keyboard: WASD move, mouse aim, click fire, R reload, F medkit, Shift sprint.
 
+Phone: the left half of the screen is a move stick and the right half aims and
+fires - drag, do not tap. The three round buttons on the right are run, reload
+and heal. Push the move stick all the way over to sprint. Landscape is better,
+but portrait works.
+
 State lives in memory. A restart (or a free host spinning the service down when idle)
 ends any run in progress; players just open the link again for a fresh room.
