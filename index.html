@@ -2596,7 +2596,7 @@ const WEATHER_KINDS = [
 ];
 const WEATHER = {
   kind: 'clear', level: 0, phase: 'in', hold: 24,
-  wind: 0.3, flash: 0, nextFlash: 9, drops: [], puddles: null
+  wind: 0.3, flash: 0, echo: 0, nextFlash: 9, drops: [], puddles: null
 };
 
 /* a handle for looking at the sky from the browser console, the same way the
@@ -2610,6 +2610,7 @@ function weatherReset(){
   WEATHER.hold = 20 + Math.random() * 30;
   WEATHER.wind = (Math.random() * 2 - 1) * 0.5;
   WEATHER.flash = 0;
+  WEATHER.echo = 0;
   WEATHER.nextFlash = 7 + Math.random() * 8;
   WEATHER.drops.length = 0;
   if(!WEATHER.puddles) weatherMakePuddles();
@@ -2702,7 +2703,15 @@ function weatherUpdate(dt){
     WEATHER.nextFlash -= dt;
     if(WEATHER.nextFlash <= 0){
       WEATHER.flash = 1;
+      WEATHER.echo = 0.2;                 // the second blink, a moment later
       WEATHER.nextFlash = 6 + Math.random() * 12;
+    }
+  }
+  if(WEATHER.echo > 0){
+    WEATHER.echo -= dt;
+    if(WEATHER.echo <= 0){
+      WEATHER.flash = Math.max(WEATHER.flash, 0.72);
+      WEATHER.echo = 0;
     }
   }
   if(WEATHER.flash > 0) WEATHER.flash = Math.max(0, WEATHER.flash - dt * 2.8);
@@ -2779,8 +2788,11 @@ function weatherScreen(){
     }
   }
   if(WEATHER.flash > 0.01){
-    ctx.fillStyle = 'rgba(228,238,246,' + (WEATHER.flash * 0.3).toFixed(3) + ')';
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(146,176,224,' + (WEATHER.flash * 0.42).toFixed(3) + ')';
     ctx.fillRect(0, 0, VW, VH);
+    ctx.restore();
   }
 }
 
