@@ -72,12 +72,21 @@ reopen the menu. Chrome reads the manifest when the page loads.
 INSTALL THE GAME ON ANDROID (the one that works offline)
 -------------------------------------------------------
  1. Chrome, open   https://rot-ruin-wbadxv.freebuff.site/
- 2. Three-dot menu, "Install app", "Install". The icon is named ROT & RUIN.
- 3. Open it once, on the start screen, so it caches itself.
- 4. Turn on airplane mode.
- 5. Open it again. The game starts and plays, and runs save on the phone.
+ 2. Play it there if you like: nothing has to be installed to play in the
+    browser.
+ 3. Three-dot menu, "Install app", "Install". The icon is named ROT & RUIN.
+    Older Chrome says "Add to Home screen". If neither entry is there, reload
+    the page once and open the menu again.
+ 4. Open the icon once, on the start screen, so it caches itself.
+ 5. Turn on airplane mode.
+ 6. Open it again. The game starts and plays, and saves run on the phone.
 
-Checking the offline copy is this: step 4 and step 5. If you open the co-op icon
+If you downloaded the zip on the phone instead: open Files, tap the zip, tap
+Extract, then open index.html. It runs from the folder, but a page opened as a
+file cannot cache itself, so it will not work without signal. The install route
+above is the one that plays offline.
+
+Checking the offline copy is this: step 5 and step 6. If you open the co-op icon
 in airplane mode you get "connecting..." and then "disconnected". That is
 correct: the room server is the one thing that cannot be cached.
 
